@@ -48,6 +48,10 @@ var showCorrectUsage = function () {
   console.log('  --force       Force all necessary directory modifications without prompts');
   console.log();
   console.log('Commands:');
+  console.log('  install                       Sets up your environment to run Baasil.io apps locally.');
+  console.log('                                This will install the following programs:');
+  console.log('                                  - docker');
+  console.log('                                  - kubectl');
   console.log('  create <app-name>             Create a new boilerplate SCC app in working directory');
   console.log('  run <path>                    Run app at path inside container on your local machine');
   console.log('  restart <app-name>            Restart an app with the specified name');
