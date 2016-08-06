@@ -186,19 +186,43 @@ if (command == 'create') {
 
   var portNumber = Number(argv.p) || 8000;
 
-  execSync(`docker stop ${appName}`);
-  execSync(`docker rm ${appName}`);
+  try {
+    execSync(`docker stop ${appName}`, {stdio: 'ignore'});
+    execSync(`docker rm ${appName}`, {stdio: 'ignore'});
+  } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
     `--name ${appName} socketcluster/socketcluster:v5.0.0`;
 
-  // console.log(2222, command);
-  execSync(dockerCommand);
+  try {
+    execSync(dockerCommand);
+    successMessage(`App ${appName} is running at http://localhost:${portNumber}`);
+  } catch (e) {
+    errorMessage(`Failed to start app ${appName}.`);
+  }
   process.exit();
 } else if (command == 'restart') {
   var appName = arg1;
-  execSync(`docker stop ${appName}`);
-  execSync(`docker start ${appName}`);
+  try {
+    execSync(`docker stop ${appName}`, {stdio: 'ignore'});
+    successMessage(`App ${appName} was stoppped.`);
+  } catch (e) {}
+  try {
+    execSync(`docker start ${appName}`);
+    successMessage(`App ${appName} is running.`);
+  } catch (e) {
+    errorMessage(`Failed to start app ${appName}.`);
+  }
+  process.exit();
+} else if (command == 'stop') {
+  var appName = arg1;
+  try {
+    execSync(`docker stop ${appName}`);
+    execSync(`docker rm ${appName}`);
+    successMessage(`App ${appName} was stoppped.`);
+  } catch (e) {
+    errorMessage(`Failed to stop app ${appName}.`);
+  }
   process.exit();
 } else {
   errorMessage("'" + command + "' is not a valid Baasil.io command.");
