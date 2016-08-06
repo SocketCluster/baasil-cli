@@ -10,6 +10,10 @@
     "type": "git",
     "url": "https://github.com/jondubois/baasil-cli.git"
   },
+  "dependencies": {
+    "fs-extra": "0.30.0",
+    "minimist": "1.1.0"
+  },
   "keywords": [
     "Baasil.io",
     "Docker",

@@ -1,0 +1,28 @@
+{
+  "name": "scc-app",
+  "description": "A boilerplate SCC app",
+  "version": "1.0.0",
+  "contributors": [
+    {
+      "name": "Jonathan Gros-Dubois",
+      "email": "grosjona@yahoo.com.au"
+    }
+  ],
+  "dependencies": {
+    "connect": "3.0.1",
+    "express": "4.13.1",
+    "minimist": "1.1.0",
+    "serve-static": "1.8.0",
+    "sc-cluster-broker-client": "1.x.x",
+    "socketcluster": "5.x.x",
+    "socketcluster-client": "5.x.x"
+  },
+  "keywords": [
+    "websocket",
+    "server",
+    "realtime",
+    "cluster",
+    "scalable"
+  ],
+  "readmeFilename": "README.md"
+}

@@ -1,0 +1,207 @@
+#!/usr/bin/env node
+
+process.stdin.resume();
+process.stdin.setEncoding('utf8');
+
+var fs = require('fs-extra');
+var path = require('path');
+var argv = require('minimist')(process.argv.slice(2));
+var childProcess = require('child_process');
+var exec = childProcess.exec;
+var execSync = childProcess.execSync;
+var spawn = childProcess.spawn;
+var fork = childProcess.fork;
+
+var command = argv._[0];
+var commandRawArgs = process.argv.slice(3);
+var arg1 = argv._[1];
+var force = argv.force ? true : false;
+
+var parsePackageFile = function (moduleDir) {
+  var packageFile = moduleDir + '/package.json';
+  try {
+    if (fs.existsSync(packageFile)) {
+      return JSON.parse(fs.readFileSync(packageFile, {encoding: 'utf8'}));
+    }
+  } catch (e) {}
+
+  return {};
+}
+
+var errorMessage = function (message) {
+  console.log('\033[0;31m[Error]\033[0m ' + message);
+}
+
+var successMessage = function (message) {
+  console.log('\033[0;32m[Success]\033[0m ' + message);
+}
+
+var warningMessage = function (message) {
+  console.log('\033[0;33m[Warning]\033[0m ' + message);
+}
+
+var showCorrectUsage = function () {
+  console.log('Usage: baasil [options] [command]\n');
+  console.log('Options:');
+  console.log("  -v            Get the version of the current Baasil.io installation");
+  console.log('  --help        Get info on how to use this command');
+  console.log('  --force       Force all necessary directory modifications without prompts');
+  console.log();
+  console.log('Commands:');
+  console.log('  create <app-name>             Create a new boilerplate SCC app in working directory');
+  console.log('  run <path>                    Run app at path inside container on your local machine');
+  console.log('  restart <app-name>            Restart an app with the specified name');
+  console.log('  stop <app-name>               Stop an app with the specified name');
+  console.log('  list                          List all running apps on your local machine');
+  console.log('  deploy <cluster-name> <path>  Deploy app at path to your Baasil.io cluster');
+  console.log('    --key-path <key-path>       >> Path to your TLS private key');
+  console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
+  console.log('    --tls-pair-name <key-name>  >> A name for your TLS key and cert pair - You choose');
+  console.log('    --auto-generate-tls-pair    >> If this option is specified, Baasil.io will');
+  console.log('                                   automatically generate a TLS key and cert pair');
+  console.log('                                   for you using Letsencrypt');
+}
+
+var failedToRemoveDirMessage = function (dirPath) {
+  errorMessage('Failed to remove existing directory at ' + dirPath + '. This directory may be used by another program or you may not have the permission to remove it.');
+}
+
+var failedToCreateMessage = function () {
+  errorMessage('Failed to create necessary files. Please check your permissions and try again.');
+}
+
+var prompt = function (message, callback) {
+  process.stdout.write(message + ' ');
+  process.stdin.on('data', function inputHandler(text) {
+    process.stdin.removeListener('data', inputHandler);
+    callback(text)
+  });
+}
+
+var promptConfirm = function (message, callback) {
+  prompt(message, function (data) {
+    data = data.toLowerCase().replace(/[\r\n]/g, '');
+    callback(data == 'y' || data == 'yes');
+  });
+}
+
+var copyDirRecursive = function (src, dest) {
+  try {
+    fs.copySync(src, dest);
+    return true;
+  } catch (e) {
+    failedToCreateMessage();
+  }
+  return false;
+}
+
+var rmdirRecursive = function (dirname) {
+  try {
+    fs.removeSync(dirname);
+    return true;
+  } catch (e) {
+    failedToRemoveDirMessage(dirname);
+  }
+  return false;
+}
+
+if (argv.help) {
+  showCorrectUsage();
+  process.exit();
+}
+
+if (argv.v) {
+  var scDir = __dirname + '/../';
+  var scPkg = parsePackageFile(scDir);
+  console.log('v' + scPkg.version);
+  process.exit();
+}
+
+var wd = process.cwd();
+
+var boilerplateDir = __dirname + '/../boilerplates/scc';
+var destDir = path.normalize(wd + '/' + arg1);
+
+var createFail = function () {
+  errorMessage("Failed to create Baasil.io app.");
+  process.exit();
+};
+
+var createSuccess = function () {
+  var boilerplatePkg = parsePackageFile(destDir);
+  boilerplatePkg.name = arg1;
+  var updatedPkgString = JSON.stringify(boilerplatePkg, null, 2);
+
+  fs.writeFileSync(destDir + '/package.json', updatedPkgString);
+
+  successMessage("Baasil.io app '" + destDir + "' was setup successfully.");
+  process.exit();
+};
+
+var setupMessage = function () {
+  console.log('Creating app structure...');
+};
+
+var confirmReplaceSetup = function (confirm) {
+  if (confirm) {
+    setupMessage();
+    if (rmdirRecursive(destDir) && copyDirRecursive(boilerplateDir, destDir)) {
+      createSuccess();
+    } else {
+      createFail();
+    }
+  } else {
+    errorMessage("Baasil.io 'create' action was aborted.");
+    process.exit();
+  }
+};
+
+if (command == 'create') {
+  if (arg1) {
+    if (fs.existsSync(destDir)) {
+      if (force) {
+        confirmReplaceSetup(true);
+      } else {
+        var message = "There is already a directory at " + destDir + '. Do you want to overwrite it? (y/n)';
+        promptConfirm(message, confirmReplaceSetup);
+      }
+    } else {
+      setupMessage();
+      if (copyDirRecursive(boilerplateDir, destDir)) {
+        createSuccess();
+      } else {
+        createFail();
+      }
+    }
+  } else {
+    errorMessage("The 'create' command requires a valid <appname> as argument.");
+    showCorrectUsage();
+    process.exit();
+  }
+} else if (command == 'run') {
+  var appPath = arg1;
+  var absoluteAppPath = path.resolve(appPath);
+  var pkg = parsePackageFile(appPath);
+  var appName = pkg.name;
+
+  var portNumber = Number(argv.p) || 8000;
+
+  execSync(`docker stop ${appName}`);
+  execSync(`docker rm ${appName}`);
+
+  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
+    `--name ${appName} socketcluster/socketcluster:v5.0.0`;
+
+  // console.log(2222, command);
+  execSync(dockerCommand);
+  process.exit();
+} else if (command == 'restart') {
+  var appName = arg1;
+  execSync(`docker stop ${appName}`);
+  execSync(`docker start ${appName}`);
+  process.exit();
+} else {
+  errorMessage("'" + command + "' is not a valid Baasil.io command.");
+  showCorrectUsage();
+  process.exit();
+}
