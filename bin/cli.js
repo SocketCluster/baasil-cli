@@ -15,6 +15,8 @@ var fork = childProcess.fork;
 var command = argv._[0];
 var commandRawArgs = process.argv.slice(3);
 var arg1 = argv._[1];
+var arg2 = argv._[2];
+
 var force = argv.force ? true : false;
 
 var parsePackageFile = function (moduleDir) {
@@ -49,9 +51,9 @@ var showCorrectUsage = function () {
   console.log();
   console.log('Commands:');
   console.log('  install                       Sets up your environment to run Baasil.io apps locally.');
-  console.log('                                This will install the following programs:');
-  console.log('                                  - docker');
-  console.log('                                  - kubectl');
+  // console.log('                                This will install the following programs:');
+  // console.log('                                  - docker');
+  // console.log('                                  - kubectl');
   console.log('  create <app-name>             Create a new boilerplate SCC app in working directory');
   console.log('  run <path>                    Run app at path inside container on your local machine');
   console.log('  restart <app-name>            Restart an app with the specified name');
@@ -183,7 +185,7 @@ if (command == 'create') {
     process.exit();
   }
 } else if (command == 'run') {
-  var appPath = arg1;
+  var appPath = arg1 || '.';
   var absoluteAppPath = path.resolve(appPath);
   var pkg = parsePackageFile(appPath);
   var appName = pkg.name;
@@ -200,22 +202,22 @@ if (command == 'create') {
 
   try {
     execSync(dockerCommand);
-    successMessage(`App ${appName} is running at http://localhost:${portNumber}`);
+    successMessage(`App '${appName}' is running at http://localhost:${portNumber}`);
   } catch (e) {
-    errorMessage(`Failed to start app ${appName}.`);
+    errorMessage(`Failed to start app '${appName}'.`);
   }
   process.exit();
 } else if (command == 'restart') {
   var appName = arg1;
   try {
     execSync(`docker stop ${appName}`, {stdio: 'ignore'});
-    successMessage(`App ${appName} was stoppped.`);
+    successMessage(`App '${appName}' was stoppped.`);
   } catch (e) {}
   try {
     execSync(`docker start ${appName}`);
-    successMessage(`App ${appName} is running.`);
+    successMessage(`App '${appName}' is running.`);
   } catch (e) {
-    errorMessage(`Failed to start app ${appName}.`);
+    errorMessage(`Failed to start app '${appName}'.`);
   }
   process.exit();
 } else if (command == 'stop') {
@@ -223,13 +225,32 @@ if (command == 'create') {
   try {
     execSync(`docker stop ${appName}`);
     execSync(`docker rm ${appName}`);
-    successMessage(`App ${appName} was stoppped.`);
+    successMessage(`App '${appName}' was stoppped.`);
   } catch (e) {
-    errorMessage(`Failed to stop app ${appName}.`);
+    errorMessage(`Failed to stop app '${appName}'.`);
   }
   process.exit();
+} else if (command == 'list') {
+  try {
+    var containerLog = execSync(`docker ps`).toString();
+    process.stdout.write(containerLog);
+  } catch (e) {
+    errorMessage(`Failed to list active containers.`);
+  }
+  process.exit();
+} else if (command == 'deploy') {
+  var clusterName = arg1;
+  if (!clusterName) {
+    errorMessage(`The first argument to the command line needs to be the name of the cluster.`);
+    process.exit();
+  }
+  var appPath = arg2 || '.';
+  var absoluteAppPath = path.resolve(appPath);
+  var pkg = parsePackageFile(appPath);
+  var appName = pkg.name;
+  console.log(`Preparing to deploy '${appName}' to the '${clusterName}' cluster...`);
 } else {
-  errorMessage("'" + command + "' is not a valid Baasil.io command.");
+  errorMessage(`'${command}' is not a valid Baasil.io command.`);
   showCorrectUsage();
   process.exit();
 }
