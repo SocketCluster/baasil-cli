@@ -19,15 +19,19 @@ var arg2 = argv._[2];
 
 var force = argv.force ? true : false;
 
-var parsePackageFile = function (moduleDir) {
-  var packageFile = moduleDir + '/package.json';
+var parseJSONFile = function (filePath) {
   try {
-    if (fs.existsSync(packageFile)) {
-      return JSON.parse(fs.readFileSync(packageFile, {encoding: 'utf8'}));
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, {encoding: 'utf8'}));
     }
   } catch (e) {}
 
   return {};
+};
+
+var parsePackageFile = function (moduleDir) {
+  var packageFile = moduleDir + '/package.json';
+  return parseJSONFile(packageFile);
 }
 
 var errorMessage = function (message) {
@@ -42,6 +46,7 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
+// TODO: Add baasil logs command
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
   console.log('Options:');
@@ -58,7 +63,7 @@ var showCorrectUsage = function () {
   console.log('  run <path>                    Run app at path inside container on your local machine');
   console.log('  restart <app-name>            Restart an app with the specified name');
   console.log('  stop <app-name>               Stop an app with the specified name');
-  console.log('  list                          List all running apps on your local machine');
+  console.log('  list                          List all running Docker containers on your local machine');
   console.log('  deploy <cluster-name> <path>  Deploy app at path to your Baasil.io cluster');
   console.log('    --key-path <key-path>       >> Path to your TLS private key');
   console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
@@ -80,7 +85,7 @@ var prompt = function (message, callback) {
   process.stdout.write(message + ' ');
   process.stdin.on('data', function inputHandler(text) {
     process.stdin.removeListener('data', inputHandler);
-    callback(text)
+    callback(text.replace(/[\r\n]/g, ''))
   });
 }
 
@@ -249,6 +254,73 @@ if (command == 'create') {
   var pkg = parsePackageFile(appPath);
   var appName = pkg.name;
   console.log(`Preparing to deploy '${appName}' to the '${clusterName}' cluster...`);
+
+  var baasilConfigFilePath = appPath + '/baasil.json';
+  var baasilConfig = parseJSONFile(baasilConfigFilePath);
+
+  var parseVersionTag = function (fullImageName) {
+    return fullImageName.match(/:[^:]*$/)[0] || '';
+  };
+
+  var handleDockerVersionTag = function (versionTag) {
+    var dockerConfig = baasilConfig.docker;
+    var authParts = (new Buffer(dockerConfig.auth, 'base64')).toString('utf8').split(':');
+    var username = authParts[0];
+    var password = authParts[1];
+    var dockerLoginCommand = `docker login -u ${username} -p ${password}`;
+
+    var fullVersionTag;
+    if (versionTag) {
+      fullVersionTag = `:${versionTag}`;
+    } else {
+      fullVersionTag = parseVersionTag(dockerConfig.imageName);
+    }
+    dockerConfig.imageName = dockerConfig.imageName.replace(/(\/[^\/:]*)(:[^:]*)?$/g, `$1${fullVersionTag}`);
+    fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
+
+    // TODO
+    // execSync(`docker build .`);
+    // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+  };
+
+  var pushToDockerImageRepo = function () {
+    var currentVersionTag = (parseVersionTag(baasilConfig.docker.imageName) || '""').replace(/^:/, '');
+    prompt(`Enter the Docker version tag for this deployment (Default: ${currentVersionTag}):`, handleDockerVersionTag);
+  };
+
+  if (baasilConfig.docker && baasilConfig.docker.imageRepo && baasilConfig.docker.auth) {
+    pushToDockerImageRepo();
+  } else {
+    var dockerUsername, dockerPassword, dockerImageName, dockerDefaultImageName;
+    var saveBaasilConfigs = function () {
+      baasilConfig.docker = {
+        imageRepo: 'https://index.docker.io/v1/',
+        imageName: dockerImageName,
+        auth: (new Buffer(`${dockerUsername}:${dockerPassword}`)).toString('base64')
+      };
+      fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
+      pushToDockerImageRepo();
+    };
+
+    var handleDockerImageName = function (imageName) {
+      if (imageName) {
+        dockerImageName = imageName;
+      } else {
+        dockerImageName = dockerDefaultImageName;
+      }
+      saveBaasilConfigs();
+    };
+    var handlePassword = function (password) {
+      dockerPassword = password;
+      dockerDefaultImageName = `${dockerUsername}/${appName}`;
+      prompt(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
+    };
+    var handleUsername = function (username) {
+      dockerUsername = username;
+      prompt('Enter your DockerHub password:', handlePassword);
+    };
+    prompt('Enter your DockerHub username:', handleUsername);
+  }
 } else {
   errorMessage(`'${command}' is not a valid Baasil.io command.`);
   showCorrectUsage();
