@@ -253,13 +253,16 @@ if (command == 'create') {
   var absoluteAppPath = path.resolve(appPath);
   var pkg = parsePackageFile(appPath);
   var appName = pkg.name;
-  console.log(`Preparing to deploy '${appName}' to the '${clusterName}' cluster...`);
 
   var baasilConfigFilePath = appPath + '/baasil.json';
   var baasilConfig = parseJSONFile(baasilConfigFilePath);
 
   var parseVersionTag = function (fullImageName) {
-    return fullImageName.match(/:[^:]*$/)[0] || '';
+    var matches = fullImageName.match(/:[^:]*$/);
+    if (!matches) {
+      return '';
+    }
+    return matches[0] || '';
   };
 
   var handleDockerVersionTag = function (versionTag) {
