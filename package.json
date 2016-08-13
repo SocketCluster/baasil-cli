@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "fs-extra": "0.30.0",
-    "minimist": "1.1.0"
+    "minimist": "1.1.0",
+    "socketcluster": "5.x.x"
   },
   "keywords": [
     "Baasil.io",
