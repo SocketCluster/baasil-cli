@@ -254,8 +254,6 @@ if (command == 'create') {
   }
   process.exit();
 } else if (command == 'deploy') {
-  // TODO: Improve error handling
-
   var clusterName = arg1;
   if (!clusterName) {
     errorMessage(`The first argument to the command line needs to be the name of the cluster.`);
@@ -266,6 +264,11 @@ if (command == 'create') {
   var pkg = parsePackageFile(appPath);
   var appName = pkg.name;
 
+  var failedToDeploy = function (err) {
+    errorMessage(`Failed to deploy the '${appName}' app. ${err.message}`);
+    process.exit();
+  };
+
   var baasilConfigFilePath = appPath + '/baasil.json';
   var baasilConfig = parseJSONFile(baasilConfigFilePath);
 
@@ -275,6 +278,13 @@ if (command == 'create') {
       return '';
     }
     return matches[0] || '';
+  };
+
+  var setImageVersionTag = function (imageName, versionTag) {
+    if (versionTag.indexOf(':') != 0) {
+      versionTag = ':' + versionTag;
+    }
+    return imageName.replace(/(\/[^\/:]*)(:[^:]*)?$/g, `$1${versionTag}`);
   };
 
   var handleDockerVersionTagAndPushToDockerImageRepo = function (versionTag) {
@@ -290,22 +300,26 @@ if (command == 'create') {
     } else {
       fullVersionTag = parseVersionTag(dockerConfig.imageName);
     }
-    dockerConfig.imageName = dockerConfig.imageName.replace(/(\/[^\/:]*)(:[^:]*)?$/g, `$1${fullVersionTag}`);
-    fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
+    dockerConfig.imageName = setImageVersionTag(dockerConfig.imageName, fullVersionTag);
+    try {
+      fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
-    // TODO: Uncomment
-    // execSync(`docker build .`);
-    // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+      // TODO: Uncomment
+      // execSync(`docker build .`);
+      // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
 
-    var kubernetesDirPath = appPath + '/kubernetes';
-    var kubeFiles = fs.readdirSync(kubernetesDirPath);
-    kubeFiles.forEach((configFile) => {
-      var absolutePath = path.resolve(kubernetesDirPath, configFile);
-      // TODO: Uncommend
-      // execSync(`kubectl create -f ${absolutePath}`);
-    });
-    successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
-      `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
+      var kubernetesDirPath = appPath + '/kubernetes';
+      var kubeFiles = fs.readdirSync(kubernetesDirPath);
+      kubeFiles.forEach((configFile) => {
+        var absolutePath = path.resolve(kubernetesDirPath, configFile);
+        // TODO: Uncommend
+        // execSync(`kubectl create -f ${absolutePath}`);
+      });
+      successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
+        `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
+    } catch (err) {
+      failedToDeploy(err);
+    }
     process.exit();
   };
 
@@ -317,14 +331,18 @@ if (command == 'create') {
   if (baasilConfig.docker && baasilConfig.docker.imageRepo && baasilConfig.docker.auth) {
     pushToDockerImageRepo();
   } else {
-    var dockerUsername, dockerPassword, dockerImageName, dockerDefaultImageName;
+    var dockerUsername, dockerPassword, dockerImageName, dockerDefaultImageName, dockerDefaultImageVersionTag;
     var saveBaasilConfigs = function () {
       baasilConfig.docker = {
         imageRepo: 'https://index.docker.io/v1/',
         imageName: dockerImageName,
         auth: (new Buffer(`${dockerUsername}:${dockerPassword}`)).toString('base64')
       };
-      fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
+      try {
+        fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
+      } catch (err) {
+        failedToDeploy(err);
+      }
       pushToDockerImageRepo();
     };
 
@@ -332,13 +350,15 @@ if (command == 'create') {
       if (imageName) {
         dockerImageName = imageName;
       } else {
-        dockerImageName = dockerDefaultImageName;
+        dockerImageName = setImageVersionTag(dockerDefaultImageName, dockerDefaultImageVersionTag);
       }
       saveBaasilConfigs();
     };
     var handlePassword = function (password) {
       dockerPassword = password;
       dockerDefaultImageName = `${dockerUsername}/${appName}`;
+      dockerDefaultImageVersionTag = 'v1.0.0';
+
       prompt(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
     };
     var handleUsername = function (username) {
