@@ -293,8 +293,20 @@ if (command == 'create') {
     dockerConfig.imageName = dockerConfig.imageName.replace(/(\/[^\/:]*)(:[^:]*)?$/g, `$1${fullVersionTag}`);
     fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
-    execSync(`docker build .`);
-    execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+    // TODO: Uncomment
+    // execSync(`docker build .`);
+    // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+
+    var kubernetesDirPath = appPath + '/kubernetes';
+    var kubeFiles = fs.readdirSync(kubernetesDirPath);
+    kubeFiles.forEach((configFile) => {
+      var absolutePath = path.resolve(kubernetesDirPath, configFile);
+      // TODO: Uncommend
+      // execSync(`kubectl create -f ${absolutePath}`);
+    });
+    successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
+      `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
+    process.exit();
   };
 
   var pushToDockerImageRepo = function () {
