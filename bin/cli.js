@@ -46,7 +46,6 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
-// TODO: Add baasil logs command
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
   console.log('Options:');
@@ -64,6 +63,7 @@ var showCorrectUsage = function () {
   console.log('  restart <app-name>            Restart an app with the specified name');
   console.log('  stop <app-name>               Stop an app with the specified name');
   console.log('  list                          List all running Docker containers on your local machine');
+  console.log('  logs <app-name>               Get logs for the app with the specified name');
   console.log('  deploy <cluster-name> <path>  Deploy app at path to your Baasil.io cluster');
   console.log('    --key-path <key-path>       >> Path to your TLS private key');
   console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
@@ -131,6 +131,7 @@ if (argv.v) {
 var wd = process.cwd();
 
 var boilerplateDir = __dirname + '/../boilerplates/scc';
+var kubernetesSourceDir = __dirname + '/../node_modules/socketcluster/kubernetes';
 var destDir = path.normalize(wd + '/' + arg1);
 
 var createFail = function () {
@@ -178,7 +179,8 @@ if (command == 'create') {
       }
     } else {
       setupMessage();
-      if (copyDirRecursive(boilerplateDir, destDir)) {
+      var kubernetesTargetDir = destDir + '/kubernetes';
+      if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
         createSuccess();
       } else {
         createFail();
@@ -243,7 +245,17 @@ if (command == 'create') {
     errorMessage(`Failed to list active containers.`);
   }
   process.exit();
+} else if (command == 'logs') {
+  try {
+    var outputLog = execSync(`docker logs ${arg1}`).toString();
+    process.stdout.write(outputLog);
+  } catch (e) {
+    errorMessage(`Failed to get logs for '${arg1}' app.`);
+  }
+  process.exit();
 } else if (command == 'deploy') {
+  // TODO: Improve error handling
+
   var clusterName = arg1;
   if (!clusterName) {
     errorMessage(`The first argument to the command line needs to be the name of the cluster.`);
@@ -265,7 +277,7 @@ if (command == 'create') {
     return matches[0] || '';
   };
 
-  var handleDockerVersionTag = function (versionTag) {
+  var handleDockerVersionTagAndPushToDockerImageRepo = function (versionTag) {
     var dockerConfig = baasilConfig.docker;
     var authParts = (new Buffer(dockerConfig.auth, 'base64')).toString('utf8').split(':');
     var username = authParts[0];
@@ -281,14 +293,13 @@ if (command == 'create') {
     dockerConfig.imageName = dockerConfig.imageName.replace(/(\/[^\/:]*)(:[^:]*)?$/g, `$1${fullVersionTag}`);
     fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
-    // TODO
-    // execSync(`docker build .`);
-    // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+    execSync(`docker build .`);
+    execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
   };
 
   var pushToDockerImageRepo = function () {
     var currentVersionTag = (parseVersionTag(baasilConfig.docker.imageName) || '""').replace(/^:/, '');
-    prompt(`Enter the Docker version tag for this deployment (Default: ${currentVersionTag}):`, handleDockerVersionTag);
+    prompt(`Enter the Docker version tag for this deployment (Default: ${currentVersionTag}):`, handleDockerVersionTagAndPushToDockerImageRepo);
   };
 
   if (baasilConfig.docker && baasilConfig.docker.imageRepo && baasilConfig.docker.auth) {
