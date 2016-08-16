@@ -4,6 +4,7 @@ process.stdin.resume();
 process.stdin.setEncoding('utf8');
 
 var fs = require('fs-extra');
+var YAML = require('yamljs');
 var path = require('path');
 var argv = require('minimist')(process.argv.slice(2));
 var childProcess = require('child_process');
@@ -46,6 +47,7 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
+// TODO: Add teardown/undeploy/shutdown command to shutdown all services
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
   console.log('Options:');
@@ -134,8 +136,12 @@ var boilerplateDir = __dirname + '/../boilerplates/scc';
 var kubernetesSourceDir = __dirname + '/../node_modules/socketcluster/kubernetes';
 var destDir = path.normalize(wd + '/' + arg1);
 
-var createFail = function () {
-  errorMessage("Failed to create Baasil.io app.");
+var createFail = function (err) {
+  var errString = '';
+  if (err && err.message) {
+    errString = ' ' + err.message;
+  }
+  errorMessage(`Failed to create Baasil.io app.${errString}`);
   process.exit();
 };
 
@@ -168,6 +174,14 @@ var confirmReplaceSetup = function (confirm) {
   }
 };
 
+var getSocketClusterAppKubeConfPath = function (kubernetesTargetDir) {
+  return `${kubernetesTargetDir}/socketcluster.yaml`;
+};
+
+var sanitizeYAML = function (yamlString) {
+  return yamlString.replace(/emptyDir: ?(null)?\n/g, 'emptyDir: {}\n');
+};
+
 if (command == 'create') {
   if (arg1) {
     if (fs.existsSync(destDir)) {
@@ -181,6 +195,44 @@ if (command == 'create') {
       setupMessage();
       var kubernetesTargetDir = destDir + '/kubernetes';
       if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
+        var kubeConfSocketCluster = getSocketClusterAppKubeConfPath(kubernetesTargetDir);
+        try {
+          var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
+          var yamlParts = kubeConfContent.split("\n---\n");
+          var deploymentConf = YAML.parse(yamlParts[0]);
+
+          deploymentConf.spec.template.spec.volumes = [{
+            name: 'app-src-volume',
+            emptyDir: {}
+          }];
+          deploymentConf.spec.template.spec.containers[0].volumeMounts = [{
+            mountPath: '/usr/src/app',
+            name: 'app-src-volume'
+          }];
+          deploymentConf.spec.template.spec.containers[0].env.push({
+            name: 'SOCKETCLUSTER_WORKER_CONTROLLER',
+            value: '/usr/src/app/worker.js'
+          });
+          deploymentConf.spec.template.spec.containers.push({
+            name: 'app-src-container',
+            image: '', // image name will be generated during deployment
+            volumeMounts: [{
+              mountPath: '/usr/dest',
+              name: 'app-src-volume'
+            }],
+            lifecycle: {
+              postStart: {
+                exec: {
+                  command: ['cp', '-a', '/usr/src/.', '/usr/dest/']
+                }
+              }
+            }
+          });
+          yamlParts[0] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+          fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
+        } catch (err) {
+          createFail(err);
+        }
         createSuccess();
       } else {
         createFail();
@@ -304,17 +356,32 @@ if (command == 'create') {
     try {
       fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
-      // TODO: Uncomment
-      // execSync(`docker build .`);
-      // execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+      // TODO: Display streaming output.
+      execSync(`docker build -t ${dockerConfig.imageName} .`);
+      execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
 
       var kubernetesDirPath = appPath + '/kubernetes';
-      var kubeFiles = fs.readdirSync(kubernetesDirPath);
-      kubeFiles.forEach((configFile) => {
-        var absolutePath = path.resolve(kubernetesDirPath, configFile);
-        // TODO: Uncommend
-        // execSync(`kubectl create -f ${absolutePath}`);
+
+      var kubeConfSocketCluster = getSocketClusterAppKubeConfPath(kubernetesDirPath);
+      var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
+      var yamlParts = kubeConfContent.split("\n---\n");
+      var deploymentConf = YAML.parse(yamlParts[0]);
+      deploymentConf.spec.template.spec.containers[1].image = dockerConfig.imageName;
+      yamlParts[0] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+      fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
+
+      var ingressConfFileName = 'sc-ingress.yaml';
+      var kubeFiles = fs.readdirSync(kubernetesDirPath).filter((configFilePath) => {
+        return configFilePath != ingressConfFileName;
       });
+      kubeFiles.forEach((configFilePath) => {
+        var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
+
+        execSync(`kubectl create -f ${absolutePath}`);
+      });
+
+      execSync(`kubectl create -f ${kubernetesDirPath}/${ingressConfFileName}`);
+
       successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
         `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
     } catch (err) {

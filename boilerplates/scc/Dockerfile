@@ -7,3 +7,5 @@ WORKDIR /usr/src/
 COPY . /usr/src/
 
 RUN npm install .
+
+CMD ["sleep", "infinity"]

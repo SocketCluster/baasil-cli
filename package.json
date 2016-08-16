@@ -13,7 +13,8 @@
   "dependencies": {
     "fs-extra": "0.30.0",
     "minimist": "1.1.0",
-    "socketcluster": "5.x.x"
+    "socketcluster": "5.x.x",
+    "yamljs": "0.2.8"
   },
   "keywords": [
     "Baasil.io",
