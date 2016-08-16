@@ -370,9 +370,9 @@ if (command == 'create') {
       yamlParts[0] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
       fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
 
-      var ingressConfFileName = 'sc-ingress.yaml';
+      var ingressKubeFileName = 'sc-ingress.yaml';
       var kubeFiles = fs.readdirSync(kubernetesDirPath).filter((configFilePath) => {
-        return configFilePath != ingressConfFileName;
+        return configFilePath != ingressKubeFileName;
       });
       kubeFiles.forEach((configFilePath) => {
         var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
@@ -380,7 +380,7 @@ if (command == 'create') {
         execSync(`kubectl create -f ${absolutePath}`);
       });
 
-      execSync(`kubectl create -f ${kubernetesDirPath}/${ingressConfFileName}`);
+      execSync(`kubectl create -f ${kubernetesDirPath}/${ingressKubeFileName}`);
 
       successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
         `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
