@@ -202,21 +202,40 @@ if (command == 'create') {
         try {
           var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
           var yamlParts = kubeConfContent.split("\n---\n");
-          var deploymentConf = YAML.parse(yamlParts[0]);
+          var deploymentYamlIndex;
+          yamlParts.forEach((value, index) => {
+            var curConf = YAML.parse(yamlParts[index]);
+            if (curConf && curConf.metadata && curConf.metadata.name == 'socketcluster' && curConf.kind == 'Deployment') {
+              deploymentYamlIndex = index;
+              return;
+            }
+          });
+          var deploymentConf = YAML.parse(yamlParts[deploymentYamlIndex]);
 
           deploymentConf.spec.template.spec.volumes = [{
             name: 'app-src-volume',
             emptyDir: {}
           }];
-          deploymentConf.spec.template.spec.containers[0].volumeMounts = [{
+          var containers = deploymentConf.spec.template.spec.containers;
+          var appSrcContainerIndex;
+          containers.forEach((value, index) => {
+            if (value && value.name == 'socketcluster') {
+              appSrcContainerIndex = index;
+              return;
+            }
+          });
+          if (!containers[appSrcContainerIndex].volumeMounts) {
+            containers[appSrcContainerIndex].volumeMounts = [];
+          }
+          containers[appSrcContainerIndex].volumeMounts.push({
             mountPath: '/usr/src/app',
             name: 'app-src-volume'
-          }];
-          deploymentConf.spec.template.spec.containers[0].env.push({
+          });
+          containers[appSrcContainerIndex].env.push({
             name: 'SOCKETCLUSTER_WORKER_CONTROLLER',
             value: '/usr/src/app/worker.js'
           });
-          deploymentConf.spec.template.spec.containers.push({
+          containers.push({
             name: 'app-src-container',
             image: '', // image name will be generated during deployment
             volumeMounts: [{
@@ -231,7 +250,7 @@ if (command == 'create') {
               }
             }
           });
-          yamlParts[0] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+          yamlParts[deploymentYamlIndex] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
           fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
         } catch (err) {
           createFail(err);
@@ -374,6 +393,7 @@ if (command == 'create') {
         var curConf = YAML.parse(yamlParts[index]);
         if (curConf && curConf.metadata && curConf.metadata.name == 'socketcluster' && curConf.kind == 'Deployment') {
           deploymentYamlIndex = index;
+          return;
         }
       });
 
@@ -384,6 +404,7 @@ if (command == 'create') {
       containers.forEach((value, index) => {
         if (value && value.name == 'app-src-container') {
           appSrcContainerIndex = index;
+          return;
         }
       });
       // TODO: Also allow user to specify the number of workers and brokers.
