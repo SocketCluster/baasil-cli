@@ -47,6 +47,9 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
+// TODO: Modify the socketcluster Docker image so that it doesn't crash when worker.js is
+// not available form the volume - Instead, just wait for it to become available in master process.
+
 // TODO: Add teardown/undeploy/shutdown command to shutdown all services
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
@@ -365,9 +368,29 @@ if (command == 'create') {
       var kubeConfSocketCluster = getSocketClusterAppKubeConfPath(kubernetesDirPath);
       var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
       var yamlParts = kubeConfContent.split("\n---\n");
-      var deploymentConf = YAML.parse(yamlParts[0]);
-      deploymentConf.spec.template.spec.containers[1].image = dockerConfig.imageName;
-      yamlParts[0] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+      var deploymentYamlIndex;
+
+      yamlParts.forEach((value, index) => {
+        var curConf = YAML.parse(yamlParts[index]);
+        if (curConf && curConf.metadata && curConf.metadata.name == 'socketcluster' && curConf.kind == 'Deployment') {
+          deploymentYamlIndex = index;
+        }
+      });
+
+      var deploymentConf = YAML.parse(yamlParts[deploymentYamlIndex]);
+
+      var containers = deploymentConf.spec.template.spec.containers;
+      var appSrcContainerIndex;
+      containers.forEach((value, index) => {
+        if (value && value.name == 'app-src-container') {
+          appSrcContainerIndex = index;
+        }
+      });
+      // TODO: Also allow user to specify the number of workers and brokers.
+      if (appSrcContainerIndex) {
+        containers[appSrcContainerIndex].image = dockerConfig.imageName;
+      }
+      yamlParts[deploymentYamlIndex] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
       fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
 
       var ingressKubeFileName = 'sc-ingress.yaml';
