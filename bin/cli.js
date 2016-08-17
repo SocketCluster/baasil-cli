@@ -47,9 +47,6 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
-// TODO: Modify the socketcluster Docker image so that it doesn't crash when worker.js is
-// not available form the volume - Instead, just wait for it to become available in master process.
-
 // TODO: Add teardown/undeploy/shutdown command to shutdown all services
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
@@ -279,7 +276,7 @@ if (command == 'create') {
   } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
-    `--name ${appName} socketcluster/socketcluster:v5.0.0`;
+    `--name ${appName} socketcluster/socketcluster:v5.0.6`;
 
   try {
     execSync(dockerCommand);
