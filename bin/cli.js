@@ -47,7 +47,6 @@ var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
 }
 
-// TODO: Add teardown/undeploy/shutdown command to shutdown all services
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
   console.log('Options:');
@@ -56,23 +55,26 @@ var showCorrectUsage = function () {
   console.log('  --force       Force all necessary directory modifications without prompts');
   console.log();
   console.log('Commands:');
-  console.log('  install                       Sets up your environment to run Baasil.io apps locally.');
+  // console.log('  install                       Sets up your environment to run Baasil.io apps locally.');
   // console.log('                                This will install the following programs:');
   // console.log('                                  - docker');
   // console.log('                                  - kubectl');
   console.log('  create <app-name>             Create a new boilerplate SCC app in working directory');
   console.log('  run <path>                    Run app at path inside container on your local machine');
-  console.log('  restart <app-name>            Restart an app with the specified name');
-  console.log('  stop <app-name>               Stop an app with the specified name');
+  console.log('  restart <app-path-or-name>    Restart an app with the specified name');
+  console.log('  stop <app-path-or-name>       Stop an app with the specified name');
   console.log('  list                          List all running Docker containers on your local machine');
-  console.log('  logs <app-name>               Get logs for the app with the specified name');
-  console.log('  deploy <cluster-name> <path>  Deploy app at path to your Baasil.io cluster');
-  console.log('    --key-path <key-path>       >> Path to your TLS private key');
-  console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
-  console.log('    --tls-pair-name <key-name>  >> A name for your TLS key and cert pair - You choose');
-  console.log('    --auto-generate-tls-pair    >> If this option is specified, Baasil.io will');
+  console.log('  logs <app-path-or-name>       Get logs for the app with the specified name');
+  console.log('  deploy <app-path>             Deploy app at path to your Baasil.io cluster');
+  // TODO
+  // console.log('    --key-path <key-path>       >> Path to your TLS private key');
+  // console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
+  // console.log('    --tls-pair-name <key-name>  >> A name for your TLS key and cert pair - You choose');
+  // console.log('    --auto-generate-tls-pair    >> If this option is specified, Baasil.io will');
   console.log('                                   automatically generate a TLS key and cert pair');
   console.log('                                   for you using Letsencrypt');
+  console.log('  deploy-update <app-path>      Deploy update to app which was previously deployed');
+  console.log('  undeploy <app-path>           Shutdown all core app services running on your cluster');
 }
 
 var failedToRemoveDirMessage = function (dirPath) {
@@ -270,13 +272,26 @@ if (command == 'create') {
 
   var portNumber = Number(argv.p) || 8000;
 
+  // var baasilConfigFilePath = appPath + '/baasil.json';
+  // var baasilConfig = parseJSONFile(baasilConfigFilePath) || {};
+  //
+  // var socketClusterOptions = baasilConfig.socketCluster || {};
+  // var workerCount = String(socketClusterOptions.workers || 1);
+  // var brokerCount = String(socketClusterOptions.brokers || 1);
+
+  var workerCount = 1;
+  var brokerCount = 1;
+
   try {
     execSync(`docker stop ${appName}`, {stdio: 'ignore'});
     execSync(`docker rm ${appName}`, {stdio: 'ignore'});
   } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
+    `-e "SOCKETCLUSTER_WORKERS=${workerCount}" -e "SOCKETCLUSTER_BROKERS=${brokerCount}" ` +
     `--name ${appName} socketcluster/socketcluster:v5.0.7`;
+
+  console.log(444, dockerCommand);
 
   try {
     execSync(dockerCommand);
@@ -287,9 +302,15 @@ if (command == 'create') {
   process.exit();
 } else if (command == 'restart') {
   var appName = arg1;
+  if (!appName) {
+    var appPath = '.';
+    var absoluteAppPath = path.resolve(appPath);
+    var pkg = parsePackageFile(appPath);
+    appName = pkg.name;
+  }
   try {
     execSync(`docker stop ${appName}`, {stdio: 'ignore'});
-    successMessage(`App '${appName}' was stoppped.`);
+    successMessage(`App '${appName}' was stopped.`);
   } catch (e) {}
   try {
     execSync(`docker start ${appName}`);
@@ -300,10 +321,16 @@ if (command == 'create') {
   process.exit();
 } else if (command == 'stop') {
   var appName = arg1;
+  if (!appName) {
+    var appPath = '.';
+    var absoluteAppPath = path.resolve(appPath);
+    var pkg = parsePackageFile(appPath);
+    appName = pkg.name;
+  }
   try {
     execSync(`docker stop ${appName}`);
     execSync(`docker rm ${appName}`);
-    successMessage(`App '${appName}' was stoppped.`);
+    successMessage(`App '${appName}' was stopped.`);
   } catch (e) {
     errorMessage(`Failed to stop app '${appName}'.`);
   }
@@ -317,23 +344,30 @@ if (command == 'create') {
   }
   process.exit();
 } else if (command == 'logs') {
+  var appName = arg1;
+  if (!appName) {
+    var appPath = '.';
+    var absoluteAppPath = path.resolve(appPath);
+    var pkg = parsePackageFile(appPath);
+    appName = pkg.name;
+  }
   try {
-    var outputLog = execSync(`docker logs ${arg1}`).toString();
+    var outputLog = execSync(`docker logs ${appName}`).toString();
     process.stdout.write(outputLog);
   } catch (e) {
-    errorMessage(`Failed to get logs for '${arg1}' app.`);
+    errorMessage(`Failed to get logs for '${appName}' app.`);
   }
   process.exit();
-} else if (command == 'deploy') {
-  var clusterName = arg1;
-  if (!clusterName) {
-    errorMessage(`The first argument to the command line needs to be the name of the cluster.`);
-    process.exit();
-  }
-  var appPath = arg2 || '.';
+} else if (command == 'deploy' || command == 'deploy-update') {
+  var appPath = arg1 || '.';
   var absoluteAppPath = path.resolve(appPath);
   var pkg = parsePackageFile(appPath);
   var appName = pkg.name;
+
+  var isUpdate = (command == 'deploy-update');
+
+  var defaultWorkerCount = '1';
+  var defaultBrokerCount = '1';
 
   var failedToDeploy = function (err) {
     errorMessage(`Failed to deploy the '${appName}' app. ${err.message}`);
@@ -375,9 +409,8 @@ if (command == 'create') {
     try {
       fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
-      // TODO: Display streaming output.
-      execSync(`docker build -t ${dockerConfig.imageName} .`);
-      execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`);
+      execSync(`docker build -t ${dockerConfig.imageName} .`, {stdio: 'inherit'});
+      execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`, {stdio: 'inherit'});
 
       var kubernetesDirPath = appPath + '/kubernetes';
 
@@ -397,43 +430,95 @@ if (command == 'create') {
       var deploymentConf = YAML.parse(yamlParts[deploymentYamlIndex]);
 
       var containers = deploymentConf.spec.template.spec.containers;
-      var appSrcContainerIndex;
       containers.forEach((value, index) => {
-        if (value && value.name == 'app-src-container') {
-          appSrcContainerIndex = index;
-          return;
+        if (value) {
+          if (value.name == 'app-src-container') {
+            containers[index].image = dockerConfig.imageName;
+          } else if (value.name == 'socketcluster') {
+            if (!containers[index].env) {
+              containers[index].env = [];
+            }
+            containers[index].env = containers[index].env.filter((envObject) => {
+              if (envObject.name == 'SOCKETCLUSTER_WORKERS' || envObject.name == 'SOCKETCLUSTER_BROKERS') {
+                return false;
+              }
+              return true;
+            });
+            containers[index].env.push({
+              name: 'SOCKETCLUSTER_WORKERS',
+              value: String(baasilConfig.socketCluster.workers || defaultWorkerCount)
+            });
+            containers[index].env.push({
+              name: 'SOCKETCLUSTER_BROKERS',
+              value: String(baasilConfig.socketCluster.brokers || defaultBrokerCount)
+            });
+          }
         }
       });
-      // TODO: Also allow user to specify the number of workers and brokers.
-      if (appSrcContainerIndex) {
-        containers[appSrcContainerIndex].image = dockerConfig.imageName;
-      }
+
       yamlParts[deploymentYamlIndex] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
       fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
 
       var ingressKubeFileName = 'sc-ingress.yaml';
-      var kubeFiles = fs.readdirSync(kubernetesDirPath).filter((configFilePath) => {
-        return configFilePath != ingressKubeFileName;
-      });
-      kubeFiles.forEach((configFilePath) => {
-        var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
+      var socketClusterKubeFileName = 'socketcluster.yaml';
 
-        execSync(`kubectl create -f ${absolutePath}`);
-      });
-
-      execSync(`kubectl create -f ${kubernetesDirPath}/${ingressKubeFileName}`);
-
-      successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
+      var deploySuccess = () => {
+        successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
         `once it has finished booting up. Check your Rancher control panel from http://baasil.io to track the boot progress and to find out which IP address(es) have been exposed to the internet.`);
+        process.exit();
+      };
+
+      if (isUpdate) {
+        try {
+          execSync(`kubectl replace -f ${kubernetesDirPath}/${socketClusterKubeFileName}`, {stdio: 'inherit'});
+        } catch (err) {}
+
+        deploySuccess();
+      } else {
+        var kubeFiles = fs.readdirSync(kubernetesDirPath).filter((configFilePath) => {
+          return configFilePath != ingressKubeFileName;
+        });
+        kubeFiles.forEach((configFilePath) => {
+          var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
+          execSync(`kubectl create -f ${absolutePath}`, {stdio: 'inherit'});
+        });
+
+        // Wait a few seconds before deploying ingress (due to a bug in Rancher).
+        setTimeout(() => {
+          try {
+            execSync(`kubectl create -f ${kubernetesDirPath}/${ingressKubeFileName}`, {stdio: 'inherit'});
+            deploySuccess();
+          } catch (err) {
+            failedToDeploy(err);
+          }
+        }, 5000);
+      }
     } catch (err) {
       failedToDeploy(err);
     }
-    process.exit();
+  };
+
+  var incrementVersion = function (versionString) {
+    return versionString.replace(/[^.]$/, (match) => {
+      return parseInt(match) + 1;
+    });
   };
 
   var pushToDockerImageRepo = function () {
-    var currentVersionTag = (parseVersionTag(baasilConfig.docker.imageName) || '""').replace(/^:/, '');
-    prompt(`Enter the Docker version tag for this deployment (Default: ${currentVersionTag}):`, handleDockerVersionTagAndPushToDockerImageRepo);
+    var versionTagString = parseVersionTag(baasilConfig.docker.imageName).replace(/^:/, '');
+    var nextVersionTag;
+    if (versionTagString) {
+      if (isUpdate) {
+        nextVersionTag = incrementVersion(versionTagString);
+        baasilConfig.docker.imageName = setImageVersionTag(baasilConfig.docker.imageName, nextVersionTag);
+      } else {
+        nextVersionTag = versionTagString;
+      }
+    } else {
+      nextVersionTag = '""';
+    }
+
+    prompt(`Enter the Docker version tag for this deployment (Default: ${nextVersionTag}):`, handleDockerVersionTagAndPushToDockerImageRepo);
   };
 
   if (baasilConfig.docker && baasilConfig.docker.imageRepo && baasilConfig.docker.auth) {
@@ -462,19 +547,71 @@ if (command == 'create') {
       }
       saveBaasilConfigs();
     };
-    var handlePassword = function (password) {
-      dockerPassword = password;
+
+    var promptDockerImageName = function () {
       dockerDefaultImageName = `${dockerUsername}/${appName}`;
       dockerDefaultImageVersionTag = 'v1.0.0';
 
       prompt(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
     };
+
+    var handleBrokerCount = function (brokerCount) {
+      if (brokerCount) {
+        baasilConfig.socketCluster.brokers = brokerCount;
+      }
+      promptDockerImageName();
+    };
+
+    var handleWorkerCount = function (workerCount) {
+      if (workerCount) {
+        baasilConfig.socketCluster.workers = workerCount;
+      }
+      if (!baasilConfig.socketCluster.brokers) {
+        baasilConfig.socketCluster.brokers = defaultBrokerCount;
+      }
+      var currentBrokerCount = baasilConfig.socketCluster.brokers;
+      prompt(`Enter the number of brokers for your SocketCluster instances (Default: ${currentBrokerCount}):`, handleBrokerCount);
+    };
+
+    var promptWorkerCount = function () {
+      if (!baasilConfig.socketCluster) {
+        baasilConfig.socketCluster = {};
+      }
+      if (!baasilConfig.socketCluster.workers) {
+        baasilConfig.socketCluster.workers = defaultWorkerCount;
+      }
+      var currentWorkerCount = baasilConfig.socketCluster.workers;
+      prompt(`Enter the number of workers for your SocketCluster instances (Default: ${currentWorkerCount}):`, handleWorkerCount);
+    };
+
+    var handlePassword = function (password) {
+      dockerPassword = password;
+      promptWorkerCount();
+    };
+
     var handleUsername = function (username) {
       dockerUsername = username;
       prompt('Enter your DockerHub password:', handlePassword);
     };
     prompt('Enter your DockerHub username:', handleUsername);
   }
+} else if (command == 'undeploy') {
+  var appPath = arg1 || '.';
+
+  var pkg = parsePackageFile(appPath);
+  var appName = pkg.name;
+
+  var kubernetesDirPath = appPath + '/kubernetes';
+  var kubeFiles = fs.readdirSync(kubernetesDirPath);
+  kubeFiles.forEach((configFilePath) => {
+    var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
+    try {
+      execSync(`kubectl delete -f ${absolutePath}`, {stdio: 'inherit'});
+    } catch (err) {}
+  });
+  successMessage(`The '${appName}' app was undeployed successfully.`);
+
+  process.exit();
 } else {
   errorMessage(`'${command}' is not a valid Baasil.io command.`);
   showCorrectUsage();
