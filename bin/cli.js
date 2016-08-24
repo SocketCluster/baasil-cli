@@ -71,8 +71,8 @@ var showCorrectUsage = function () {
   // console.log('    --cert-path <cert-path>     >> Path to your TLS cert');
   // console.log('    --tls-pair-name <key-name>  >> A name for your TLS key and cert pair - You choose');
   // console.log('    --auto-generate-tls-pair    >> If this option is specified, Baasil.io will');
-  console.log('                                   automatically generate a TLS key and cert pair');
-  console.log('                                   for you using Letsencrypt');
+  // console.log('                                   automatically generate a TLS key and cert pair');
+  // console.log('                                   for you using Letsencrypt');
   console.log('  deploy-update <app-path>      Deploy update to app which was previously deployed');
   console.log('  undeploy <app-path>           Shutdown all core app services running on your cluster');
 }
