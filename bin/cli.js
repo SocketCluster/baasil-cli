@@ -271,27 +271,25 @@ if (command == 'create') {
   var appName = pkg.name;
 
   var portNumber = Number(argv.p) || 8000;
-
-  // var baasilConfigFilePath = appPath + '/baasil.json';
-  // var baasilConfig = parseJSONFile(baasilConfigFilePath) || {};
-  //
-  // var socketClusterOptions = baasilConfig.socketCluster || {};
-  // var workerCount = String(socketClusterOptions.workers || 1);
-  // var brokerCount = String(socketClusterOptions.brokers || 1);
-
-  var workerCount = 1;
-  var brokerCount = 1;
+  var envVarList;
+  if (!(argv.e instanceof Array)) {
+    envVarList = [argv.e];
+  } else {
+    envVarList = argv.e;
+  }
+  var envFlagList = [''];
+  envVarList.forEach((value) => {
+    envFlagList.push(`-e "${value}"`);
+  });
+  var envFlagString = envFlagList.join(' ');
 
   try {
     execSync(`docker stop ${appName}`, {stdio: 'ignore'});
     execSync(`docker rm ${appName}`, {stdio: 'ignore'});
   } catch (e) {}
 
-  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
-    `-e "SOCKETCLUSTER_WORKERS=${workerCount}" -e "SOCKETCLUSTER_BROKERS=${brokerCount}" ` +
-    `--name ${appName} socketcluster/socketcluster:v5.0.7`;
-
-  console.log(444, dockerCommand);
+  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js"` +
+    `${envFlagString} --name ${appName} socketcluster/socketcluster:v5.0.7`;
 
   try {
     execSync(dockerCommand);
