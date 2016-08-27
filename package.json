@@ -1,6 +1,6 @@
 {
   "name": "baasil",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Command line interface for Baasil.io",
   "main": "index.js",
   "scripts": {
@@ -15,6 +15,9 @@
     "minimist": "1.1.0",
     "socketcluster": "5.x.x",
     "yamljs": "0.2.8"
+  },
+  "bin": {
+    "baasil": "bin/cli.js"
   },
   "keywords": [
     "Baasil.io",
