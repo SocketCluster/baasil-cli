@@ -176,8 +176,8 @@ var confirmReplaceSetup = function (confirm) {
   }
 };
 
-var getSocketClusterAppKubeConfPath = function (kubernetesTargetDir) {
-  return `${kubernetesTargetDir}/socketcluster.yaml`;
+var getSocketClusterDeploymentDefPath = function (kubernetesTargetDir) {
+  return `${kubernetesTargetDir}/socketcluster-deployment.yaml`;
 };
 
 var sanitizeYAML = function (yamlString) {
@@ -197,19 +197,10 @@ if (command == 'create') {
       setupMessage();
       var kubernetesTargetDir = destDir + '/kubernetes';
       if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
-        var kubeConfSocketCluster = getSocketClusterAppKubeConfPath(kubernetesTargetDir);
+        var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesTargetDir);
         try {
           var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
-          var yamlParts = kubeConfContent.split("\n---\n");
-          var deploymentYamlIndex;
-          yamlParts.forEach((value, index) => {
-            var curConf = YAML.parse(yamlParts[index]);
-            if (curConf && curConf.metadata && curConf.metadata.name == 'socketcluster' && curConf.kind == 'Deployment') {
-              deploymentYamlIndex = index;
-              return;
-            }
-          });
-          var deploymentConf = YAML.parse(yamlParts[deploymentYamlIndex]);
+          var deploymentConf = YAML.parse(kubeConfContent);
 
           deploymentConf.spec.template.spec.volumes = [{
             name: 'app-src-volume',
@@ -249,8 +240,8 @@ if (command == 'create') {
               }
             }
           });
-          yamlParts[deploymentYamlIndex] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
-          fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
+          var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+          fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
         } catch (err) {
           createFail(err);
         }
@@ -412,20 +403,10 @@ if (command == 'create') {
 
       var kubernetesDirPath = appPath + '/kubernetes';
 
-      var kubeConfSocketCluster = getSocketClusterAppKubeConfPath(kubernetesDirPath);
+      var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesDirPath);
       var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
-      var yamlParts = kubeConfContent.split("\n---\n");
-      var deploymentYamlIndex;
 
-      yamlParts.forEach((value, index) => {
-        var curConf = YAML.parse(yamlParts[index]);
-        if (curConf && curConf.metadata && curConf.metadata.name == 'socketcluster' && curConf.kind == 'Deployment') {
-          deploymentYamlIndex = index;
-          return;
-        }
-      });
-
-      var deploymentConf = YAML.parse(yamlParts[deploymentYamlIndex]);
+      var deploymentConf = YAML.parse(kubeConfContent);
 
       var containers = deploymentConf.spec.template.spec.containers;
       containers.forEach((value, index) => {
@@ -454,11 +435,11 @@ if (command == 'create') {
         }
       });
 
-      yamlParts[deploymentYamlIndex] = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
-      fs.writeFileSync(kubeConfSocketCluster, yamlParts.join("\n---\n"));
+      var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+      fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
 
-      var ingressKubeFileName = 'sc-ingress.yaml';
-      var socketClusterKubeFileName = 'socketcluster.yaml';
+      var ingressKubeFileName = 'scc-ingress.yaml';
+      var socketClusterDeploymentFileName = 'socketcluster-deployment.yaml';
 
       var deploySuccess = () => {
         successMessage(`The '${appName}' app was deployed successfully - You should be able to access it online ` +
@@ -468,7 +449,7 @@ if (command == 'create') {
 
       if (isUpdate) {
         try {
-          execSync(`kubectl replace -f ${kubernetesDirPath}/${socketClusterKubeFileName}`, {stdio: 'inherit'});
+          execSync(`kubectl replace -f ${kubernetesDirPath}/${socketClusterDeploymentFileName}`, {stdio: 'inherit'});
         } catch (err) {}
 
         deploySuccess();
@@ -489,7 +470,7 @@ if (command == 'create') {
           } catch (err) {
             failedToDeploy(err);
           }
-        }, 5000);
+        }, 7000);
       }
     } catch (err) {
       failedToDeploy(err);
