@@ -549,7 +549,7 @@ if (command == 'create') {
         baasilConfig.socketCluster.brokers = defaultBrokerCount;
       }
       var currentBrokerCount = baasilConfig.socketCluster.brokers;
-      prompt(`Enter the number of brokers for your SocketCluster instances (Default: ${currentBrokerCount}):`, handleBrokerCount);
+      prompt(`Enter the number of brokers for each SocketCluster instance (Default: ${currentBrokerCount}):`, handleBrokerCount);
     };
 
     var promptWorkerCount = function () {
@@ -560,7 +560,7 @@ if (command == 'create') {
         baasilConfig.socketCluster.workers = defaultWorkerCount;
       }
       var currentWorkerCount = baasilConfig.socketCluster.workers;
-      prompt(`Enter the number of workers for your SocketCluster instances (Default: ${currentWorkerCount}):`, handleWorkerCount);
+      prompt(`Enter the number of workers for each SocketCluster instance (Default: ${currentWorkerCount}):`, handleWorkerCount);
     };
 
     var handlePassword = function (password) {
