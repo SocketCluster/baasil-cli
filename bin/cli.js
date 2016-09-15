@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-process.stdin.resume();
-process.stdin.setEncoding('utf8');
-
 var fs = require('fs-extra');
 var YAML = require('yamljs');
 var path = require('path');
