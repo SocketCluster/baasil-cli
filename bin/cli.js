@@ -36,19 +36,19 @@ var parseJSONFile = function (filePath) {
 var parsePackageFile = function (moduleDir) {
   var packageFile = moduleDir + '/package.json';
   return parseJSONFile(packageFile);
-}
+};
 
 var errorMessage = function (message) {
   console.log('\033[0;31m[Error]\033[0m ' + message);
-}
+};
 
 var successMessage = function (message) {
   console.log('\033[0;32m[Success]\033[0m ' + message);
-}
+};
 
 var warningMessage = function (message) {
   console.log('\033[0;33m[Warning]\033[0m ' + message);
-}
+};
 
 var showCorrectUsage = function () {
   console.log('Usage: baasil [options] [command]\n');
@@ -78,15 +78,15 @@ var showCorrectUsage = function () {
   // console.log('                                   for you using Letsencrypt');
   console.log('  deploy-update <app-path>      Deploy update to app which was previously deployed');
   console.log('  undeploy <app-path>           Shutdown all core app services running on your cluster');
-}
+};
 
 var failedToRemoveDirMessage = function (dirPath) {
   errorMessage('Failed to remove existing directory at ' + dirPath + '. This directory may be used by another program or you may not have the permission to remove it.');
-}
+};
 
 var failedToCreateMessage = function () {
   errorMessage('Failed to create necessary files. Please check your permissions and try again.');
-}
+};
 
 var promptInput = function (message, callback, secret) {
   prompt([
@@ -102,14 +102,14 @@ var promptInput = function (message, callback, secret) {
     errorMessage(err.message);
     process.exit();
   });
-}
+};
 
 var promptConfirm = function (message, callback) {
   promptInput(message, function (data) {
     data = data.toLowerCase().replace(/[\r\n]/g, '');
     callback(data == 'y' || data == 'yes');
   });
-}
+};
 
 var copyDirRecursive = function (src, dest) {
   try {
@@ -119,7 +119,7 @@ var copyDirRecursive = function (src, dest) {
     failedToCreateMessage();
   }
   return false;
-}
+};
 
 var rmdirRecursive = function (dirname) {
   try {
@@ -129,7 +129,7 @@ var rmdirRecursive = function (dirname) {
     failedToRemoveDirMessage(dirname);
   }
   return false;
-}
+};
 
 if (argv.help) {
   showCorrectUsage();
