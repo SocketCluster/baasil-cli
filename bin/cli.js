@@ -8,6 +8,9 @@ var YAML = require('yamljs');
 var path = require('path');
 var argv = require('minimist')(process.argv.slice(2));
 var childProcess = require('child_process');
+var inquirer = require('inquirer');
+var prompt = inquirer.createPromptModule();
+
 var exec = childProcess.exec;
 var execSync = childProcess.execSync;
 var spawn = childProcess.spawn;
@@ -85,16 +88,24 @@ var failedToCreateMessage = function () {
   errorMessage('Failed to create necessary files. Please check your permissions and try again.');
 }
 
-var prompt = function (message, callback) {
-  process.stdout.write(message + ' ');
-  process.stdin.on('data', function inputHandler(text) {
-    process.stdin.removeListener('data', inputHandler);
-    callback(text.replace(/[\r\n]/g, ''))
+var promptInput = function (message, callback, secret) {
+  prompt([
+    {
+      type: secret ? 'password' : 'input',
+      message: message,
+      name: 'result',
+      default: null
+    }
+  ]).then((answers) => {
+    callback(answers.result);
+  }).catch((err) => {
+    errorMessage(err.message);
+    process.exit();
   });
 }
 
 var promptConfirm = function (message, callback) {
-  prompt(message, function (data) {
+  promptInput(message, function (data) {
     data = data.toLowerCase().replace(/[\r\n]/g, '');
     callback(data == 'y' || data == 'yes');
   });
@@ -497,7 +508,7 @@ if (command == 'create') {
       nextVersionTag = '""';
     }
 
-    prompt(`Enter the Docker version tag for this deployment (Default: ${nextVersionTag}):`, handleDockerVersionTagAndPushToDockerImageRepo);
+    promptInput(`Enter the Docker version tag for this deployment (Default: ${nextVersionTag}):`, handleDockerVersionTagAndPushToDockerImageRepo);
   };
 
   if (baasilConfig.docker && baasilConfig.docker.imageRepo && baasilConfig.docker.auth) {
@@ -531,7 +542,7 @@ if (command == 'create') {
       dockerDefaultImageName = `${dockerUsername}/${appName}`;
       dockerDefaultImageVersionTag = 'v1.0.0';
 
-      prompt(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
+      promptInput(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
     };
 
     var handleBrokerCount = function (brokerCount) {
@@ -549,7 +560,7 @@ if (command == 'create') {
         baasilConfig.socketCluster.brokers = defaultBrokerCount;
       }
       var currentBrokerCount = baasilConfig.socketCluster.brokers;
-      prompt(`Enter the number of brokers for each SocketCluster instance (Default: ${currentBrokerCount}):`, handleBrokerCount);
+      promptInput(`Enter the number of brokers for each SocketCluster instance (Default: ${currentBrokerCount}):`, handleBrokerCount);
     };
 
     var promptWorkerCount = function () {
@@ -560,7 +571,7 @@ if (command == 'create') {
         baasilConfig.socketCluster.workers = defaultWorkerCount;
       }
       var currentWorkerCount = baasilConfig.socketCluster.workers;
-      prompt(`Enter the number of workers for each SocketCluster instance (Default: ${currentWorkerCount}):`, handleWorkerCount);
+      promptInput(`Enter the number of workers for each SocketCluster instance (Default: ${currentWorkerCount}):`, handleWorkerCount);
     };
 
     var handlePassword = function (password) {
@@ -570,9 +581,9 @@ if (command == 'create') {
 
     var handleUsername = function (username) {
       dockerUsername = username;
-      prompt('Enter your DockerHub password:', handlePassword);
+      promptInput('Enter your DockerHub password:', handlePassword, true);
     };
-    prompt('Enter your DockerHub username:', handleUsername);
+    promptInput('Enter your DockerHub username:', handleUsername);
   }
 } else if (command == 'undeploy') {
   var appPath = arg1 || '.';
