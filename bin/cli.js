@@ -101,10 +101,22 @@ var promptInput = function (message, callback, secret) {
   });
 };
 
-var promptConfirm = function (message, callback) {
-  promptInput(message, function (data) {
-    data = data.toLowerCase().replace(/[\r\n]/g, '');
-    callback(data == 'y' || data == 'yes');
+var promptConfirm = function (message, options, callback) {
+  var promptOptions = {
+    type: 'confirm',
+    message: message,
+    name: 'result'
+  };
+  if (options && options.default) {
+    promptOptions.default = options.default;
+  }
+  prompt([
+    promptOptions
+  ]).then((answers) => {
+    callback(answers.result);
+  }).catch((err) => {
+    errorMessage(err.message);
+    process.exit();
   });
 };
 
@@ -145,6 +157,7 @@ var wd = process.cwd();
 var boilerplateDir = __dirname + '/../boilerplates/scc';
 var kubernetesSourceDir = __dirname + '/../node_modules/socketcluster/kubernetes';
 var destDir = path.normalize(wd + '/' + arg1);
+var deploymentYAMLRegex = /-deployment\.yaml$/;
 
 var createFail = function (err) {
   var errString = '';
@@ -170,20 +183,6 @@ var setupMessage = function () {
   console.log('Creating app structure...');
 };
 
-var confirmReplaceSetup = function (confirm) {
-  if (confirm) {
-    setupMessage();
-    if (rmdirRecursive(destDir) && copyDirRecursive(boilerplateDir, destDir)) {
-      createSuccess();
-    } else {
-      createFail();
-    }
-  } else {
-    errorMessage("Baasil.io 'create' action was aborted.");
-    process.exit();
-  }
-};
-
 var getSocketClusterDeploymentDefPath = function (kubernetesTargetDir) {
   return `${kubernetesTargetDir}/socketcluster-deployment.yaml`;
 };
@@ -193,70 +192,89 @@ var sanitizeYAML = function (yamlString) {
 };
 
 if (command == 'create') {
+
+  var continueSetup = function () {
+    var kubernetesTargetDir = destDir + '/kubernetes';
+    if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
+      var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesTargetDir);
+      try {
+        var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
+        var deploymentConf = YAML.parse(kubeConfContent);
+
+        deploymentConf.spec.template.spec.volumes = [{
+          name: 'app-src-volume',
+          emptyDir: {}
+        }];
+        var containers = deploymentConf.spec.template.spec.containers;
+        var appSrcContainerIndex;
+        containers.forEach((value, index) => {
+          if (value && value.name == 'socketcluster') {
+            appSrcContainerIndex = index;
+            return;
+          }
+        });
+        if (!containers[appSrcContainerIndex].volumeMounts) {
+          containers[appSrcContainerIndex].volumeMounts = [];
+        }
+        containers[appSrcContainerIndex].volumeMounts.push({
+          mountPath: '/usr/src/app',
+          name: 'app-src-volume'
+        });
+        containers[appSrcContainerIndex].env.push({
+          name: 'SOCKETCLUSTER_WORKER_CONTROLLER',
+          value: '/usr/src/app/worker.js'
+        });
+        containers.push({
+          name: 'app-src-container',
+          image: '', // image name will be generated during deployment
+          volumeMounts: [{
+            mountPath: '/usr/dest',
+            name: 'app-src-volume'
+          }],
+          lifecycle: {
+            postStart: {
+              exec: {
+                command: ['cp', '-a', '/usr/src/.', '/usr/dest/']
+              }
+            }
+          }
+        });
+        var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+        fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
+      } catch (err) {
+        createFail(err);
+      }
+      createSuccess();
+    } else {
+      createFail();
+    }
+  };
+
+  var confirmReplaceSetup = function (confirm) {
+    if (confirm) {
+      setupMessage();
+      if (rmdirRecursive(destDir) && copyDirRecursive(boilerplateDir, destDir)) {
+        continueSetup();
+      } else {
+        createFail();
+      }
+    } else {
+      errorMessage("Baasil.io 'create' action was aborted.");
+      process.exit();
+    }
+  };
+
   if (arg1) {
     if (fs.existsSync(destDir)) {
       if (force) {
         confirmReplaceSetup(true);
       } else {
-        var message = "There is already a directory at " + destDir + '. Do you want to overwrite it? (y/n)';
-        promptConfirm(message, confirmReplaceSetup);
+        var message = "There is already a directory at " + destDir + '. Do you want to overwrite it?';
+        promptConfirm(message, null, confirmReplaceSetup);
       }
     } else {
       setupMessage();
-      var kubernetesTargetDir = destDir + '/kubernetes';
-      if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
-        var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesTargetDir);
-        try {
-          var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
-          var deploymentConf = YAML.parse(kubeConfContent);
-
-          deploymentConf.spec.template.spec.volumes = [{
-            name: 'app-src-volume',
-            emptyDir: {}
-          }];
-          var containers = deploymentConf.spec.template.spec.containers;
-          var appSrcContainerIndex;
-          containers.forEach((value, index) => {
-            if (value && value.name == 'socketcluster') {
-              appSrcContainerIndex = index;
-              return;
-            }
-          });
-          if (!containers[appSrcContainerIndex].volumeMounts) {
-            containers[appSrcContainerIndex].volumeMounts = [];
-          }
-          containers[appSrcContainerIndex].volumeMounts.push({
-            mountPath: '/usr/src/app',
-            name: 'app-src-volume'
-          });
-          containers[appSrcContainerIndex].env.push({
-            name: 'SOCKETCLUSTER_WORKER_CONTROLLER',
-            value: '/usr/src/app/worker.js'
-          });
-          containers.push({
-            name: 'app-src-container',
-            image: '', // image name will be generated during deployment
-            volumeMounts: [{
-              mountPath: '/usr/dest',
-              name: 'app-src-volume'
-            }],
-            lifecycle: {
-              postStart: {
-                exec: {
-                  command: ['cp', '-a', '/usr/src/.', '/usr/dest/']
-                }
-              }
-            }
-          });
-          var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
-          fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
-        } catch (err) {
-          createFail(err);
-        }
-        createSuccess();
-      } else {
-        createFail();
-      }
+      continueSetup();
     }
   } else {
     errorMessage("The 'create' command requires a valid <appname> as argument.");
@@ -365,6 +383,9 @@ if (command == 'create') {
 
   var defaultWorkerCount = '1';
   var defaultBrokerCount = '1';
+  var doAutoScale = true;
+  var targetCPUUtilization = 50;
+  var maxPodsPerService = 10;
 
   var failedToDeploy = function (err) {
     errorMessage(`Failed to deploy the '${appName}' app. ${err.message}`);
@@ -462,13 +483,30 @@ if (command == 'create') {
 
         deploySuccess();
       } else {
-        var kubeFiles = fs.readdirSync(kubernetesDirPath).filter((configFilePath) => {
+        var kubeFiles = fs.readdirSync(kubernetesDirPath);
+        var serviceAndDeploymentKubeFiles = kubeFiles.filter((configFilePath) => {
           return configFilePath != ingressKubeFileName;
         });
-        kubeFiles.forEach((configFilePath) => {
+        var deploymentRegex = /\-deployment\.yaml/;
+        var scalableDeploymentsKubeFiles = kubeFiles.filter((configFilePath) => {
+          return deploymentRegex.test(configFilePath) && configFilePath != 'scc-state-deployment.yaml';
+        });
+        serviceAndDeploymentKubeFiles.forEach((configFilePath) => {
           var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
           execSync(`kubectl create -f ${absolutePath}`, {stdio: 'inherit'});
         });
+
+        if (doAutoScale) {
+          scalableDeploymentsKubeFiles.forEach((configFilePath) => {
+            var absolutePath = path.resolve(kubernetesDirPath, configFilePath);
+            var hpaName = configFilePath.replace(deploymentYAMLRegex, '');
+            try {
+              execSync(`kubectl delete hpa ${hpaName}`, {stdio: 'ignore'});
+            } catch (e) {}
+
+            execSync(`kubectl autoscale -f ${absolutePath} --cpu-percent=${targetCPUUtilization} --max=${maxPodsPerService} --min=1`, {stdio: 'inherit'});
+          });
+        }
 
         // Wait a few seconds before deploying ingress (due to a bug in Rancher).
         setTimeout(() => {
@@ -542,11 +580,38 @@ if (command == 'create') {
       promptInput(`Enter the Docker image name without the version tag (Or press enter for default: ${dockerDefaultImageName}):`, handleDockerImageName);
     };
 
+    var handleMaxPodsPerService = function (maxPods) {
+      if (maxPods) {
+        maxPodsPerService = Number(maxPods);
+      }
+      promptDockerImageName();
+    };
+
+    var handleTargetCPUUsage = function (targetCPU) {
+      if (targetCPU) {
+        targetCPUUtilization = Number(targetCPU);
+      }
+      promptInput(`What is the maximum number of pods per service (Default: ${maxPodsPerService})`, handleMaxPodsPerService);
+    };
+
+    var handleAutoScale = function (autoScale) {
+      doAutoScale = !(autoScale == false);
+      if (doAutoScale) {
+        promptInput(`What is the target CPU utilization percentage (for auto-scale); number must be between 0 and 100 (Default: ${targetCPUUtilization})`, handleTargetCPUUsage);
+      } else {
+        promptDockerImageName();
+      }
+    };
+
+    var promptAutoScale = function () {
+      promptConfirm(`Would you like to auto-scale your services?`, {default: doAutoScale}, handleAutoScale);
+    };
+
     var handleBrokerCount = function (brokerCount) {
       if (brokerCount) {
         baasilConfig.socketCluster.brokers = brokerCount;
       }
-      promptDockerImageName();
+      promptAutoScale();
     };
 
     var handleWorkerCount = function (workerCount) {
@@ -596,6 +661,16 @@ if (command == 'create') {
       execSync(`kubectl delete -f ${absolutePath}`, {stdio: 'inherit'});
     } catch (err) {}
   });
+
+  var deploymentRegex = /\-deployment\.yaml/;
+  var scalableDeploymentsKubeFiles = kubeFiles.filter((configFilePath) => {
+    return deploymentRegex.test(configFilePath) && configFilePath != 'scc-state-deployment.yaml';
+  });
+  scalableDeploymentsKubeFiles.forEach((configFilePath) => {
+    var hpaName = configFilePath.replace(deploymentYAMLRegex, '');
+    execSync(`kubectl delete hpa ${hpaName}`, {stdio: 'inherit'});
+  });
+
   successMessage(`The '${appName}' app was undeployed successfully.`);
 
   process.exit();
