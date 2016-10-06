@@ -1,6 +1,6 @@
 {
   "name": "baasil",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Command line interface for Baasil.io",
   "main": "index.js",
   "scripts": {
