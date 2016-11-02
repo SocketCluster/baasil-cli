@@ -309,7 +309,7 @@ if (command == 'create') {
     `${envFlagString} --name ${appName} socketcluster/socketcluster:v5.0.16`;
 
   try {
-    execSync(dockerCommand);
+    execSync(dockerCommand, {stdio: 'inherit'});
     successMessage(`App '${appName}' is running at http://localhost:${portNumber}`);
   } catch (e) {
     errorMessage(`Failed to start app '${appName}'.`);
