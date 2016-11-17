@@ -611,7 +611,9 @@ if (command == 'create') {
       if (brokerCount) {
         baasilConfig.socketCluster.brokers = brokerCount;
       }
-      promptAutoScale();
+      // TODO: Uncomment once autoscale has been fixed in Rancher/Kubernetes
+      // promptAutoScale();
+      promptDockerImageName();
     };
 
     var handleWorkerCount = function (workerCount) {
