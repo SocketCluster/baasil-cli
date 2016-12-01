@@ -306,7 +306,7 @@ if (command == 'create') {
   } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js"` +
-    `${envFlagString} --name ${appName} socketcluster/socketcluster:v5.0.25`;
+    `${envFlagString} --name ${appName} socketcluster/socketcluster:v5.1.1`;
 
   try {
     execSync(dockerCommand, {stdio: 'inherit'});
