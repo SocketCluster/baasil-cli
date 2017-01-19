@@ -6,7 +6,7 @@ The main difference between environments tends to be the load balancer.
 
 Right now, the only boilerplate/framework supported is SCC; see SocketCluster (http://socketcluster.io/) but we hope to add more in the future (and maybe turn this project into a package manager for Kubernetes-based frameworks - So feel free to get involved!).
 
-SCC is a scalable SocketCluster boilerplate app which is designed from the ground up to run natively on Rancher/Kubernetes.
+SCC is a scalable SocketCluster boilerplate/framework which is designed from the ground up to run natively on Rancher/Kubernetes.
 It can scale across any number of hosts to support millions of concurrent users without having to change any code.
 Currently, it doesn't support any database so you should use an external DB service if you need to store persistent state - Other than that, it's ideal for building
 your own stateless pub/sub service.
