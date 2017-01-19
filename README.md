@@ -1,6 +1,6 @@
 # Baasil
 
-This is a command line tool for creating app boilerplates on your local machine and deploying them to any Rancher Kubernetes environment.
+This is a command line tool for creating auto-scalable app boilerplates on your local machine and deploying them to any Rancher Kubernetes environment.
 Other Kubernetes environments may be supported in the future, but right now it's just Rancher.
 The main difference between environments tends to be the load balancer.
 
