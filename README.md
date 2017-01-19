@@ -4,7 +4,7 @@ This is a command line tool for creating auto-scalable app boilerplates on your 
 Other Kubernetes environments may be supported in the future, but right now it's just Rancher.
 The main difference between environments tends to be the load balancer.
 
-Right now, the only boilerplate supported is SCC; see SocketCluster (http://socketcluster.io/) but we hope to add more in the future (and maybe turn this project into a package manager for Kubernetes-based frameworks - So feel free to get involved!).
+Right now, the only boilerplate/framework supported is SCC; see SocketCluster (http://socketcluster.io/) but we hope to add more in the future (and maybe turn this project into a package manager for Kubernetes-based frameworks - So feel free to get involved!).
 
 SCC is a scalable SocketCluster boilerplate app which is designed from the ground up to run natively on Rancher/Kubernetes.
 It can scale across any number of hosts to support millions of concurrent users without having to change any code.
