@@ -1,6 +1,8 @@
 # Baasil
 
-This is a command line tool for creating auto-scalable app boilerplates on your local machine and deploying them to any Rancher Kubernetes environment.
+Baasil stands for "Backend as a Service is lame" - Its goal is to provide the same simplicity as BaaS solutions but without compromising flexibility, driving up costs and without the lock-in factor.
+
+More concretely, Baasil is a command line tool for creating auto-scalable app boilerplates on your local machine and deploying them to any Rancher Kubernetes environment.
 Other Kubernetes environments may be supported in the future, but right now it's just Rancher.
 The main difference between environments tends to be the load balancer.
 
