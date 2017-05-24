@@ -1,6 +1,6 @@
 # Baasil
 
-Baasil stands for "Backend as a Service is lame" - Its goal is to provide the same simplicity as BaaS solutions but without compromising flexibility and without the lock-in factor and associated costs.
+The 'Baas' in 'Baasil' stands for 'Backend as a Service' - Its goal is to provide the same simplicity as BaaS solutions but without compromising flexibility and without the lock-in factor and associated costs.
 
 More concretely, Baasil is a command line tool for creating app boilerplates on your local machine and deploying them to any Rancher Kubernetes environment with a single command.
 Other Kubernetes environments may be supported in the future, but right now it's just Rancher.
