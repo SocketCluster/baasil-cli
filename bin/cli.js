@@ -187,6 +187,10 @@ var getSocketClusterDeploymentDefPath = function (kubernetesTargetDir) {
   return `${kubernetesTargetDir}/socketcluster-deployment.yaml`;
 };
 
+var getSCCBrokerDeploymentDefPath = function (kubernetesTargetDir) {
+  return `${kubernetesTargetDir}/scc-broker-deployment.yaml`;
+};
+
 var sanitizeYAML = function (yamlString) {
   return yamlString.replace(/emptyDir: ?(null)?\n/g, 'emptyDir: {}\n');
 };
@@ -198,14 +202,14 @@ if (command == 'create') {
     if (copyDirRecursive(boilerplateDir, destDir) && copyDirRecursive(kubernetesSourceDir, kubernetesTargetDir)) {
       var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesTargetDir);
       try {
-        var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
-        var deploymentConf = YAML.parse(kubeConfContent);
+        var kubeConfContentSocketCluster = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
+        var deploymentConfSocketCluster = YAML.parse(kubeConfContentSocketCluster);
 
-        deploymentConf.spec.template.spec.volumes = [{
+        deploymentConfSocketCluster.spec.template.spec.volumes = [{
           name: 'app-src-volume',
           emptyDir: {}
         }];
-        var containers = deploymentConf.spec.template.spec.containers;
+        var containers = deploymentConfSocketCluster.spec.template.spec.containers;
         var appSrcContainerIndex;
         containers.forEach((value, index) => {
           if (value && value.name == 'socketcluster') {
@@ -239,7 +243,7 @@ if (command == 'create') {
             }
           }
         });
-        var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
+        var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConfSocketCluster, Infinity, 2));
         fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
       } catch (err) {
         createFail(err);
@@ -433,27 +437,27 @@ if (command == 'create') {
       var kubernetesDirPath = appPath + '/kubernetes';
 
       var kubeConfSocketCluster = getSocketClusterDeploymentDefPath(kubernetesDirPath);
-      var kubeConfContent = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
+      var kubeConfContentSocketCluster = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
 
-      var deploymentConf = YAML.parse(kubeConfContent);
+      var deploymentConfSocketCluster = YAML.parse(kubeConfContentSocketCluster);
 
-      var containers = deploymentConf.spec.template.spec.containers;
-      containers.forEach((value, index) => {
+      var containersSocketCluster = deploymentConfSocketCluster.spec.template.spec.containers;
+      containersSocketCluster.forEach((value, index) => {
         if (value) {
           if (value.name == 'app-src-container') {
-            containers[index].image = dockerConfig.imageName;
-          } else if (value.name == 'socketcluster' || value.name == 'scc-broker') {
-            if (!containers[index].env) {
-              containers[index].env = [];
+            containersSocketCluster[index].image = dockerConfig.imageName;
+          } else if (value.name == 'socketcluster') {
+            if (!containersSocketCluster[index].env) {
+              containersSocketCluster[index].env = [];
             }
-            containers[index].env = containers[index].env.filter((envObject) => {
+            containersSocketCluster[index].env = containersSocketCluster[index].env.filter((envObject) => {
               return envObject.name != 'SOCKETCLUSTER_WORKERS' && envObject.name != 'SOCKETCLUSTER_BROKERS';
             });
-            containers[index].env.push({
+            containersSocketCluster[index].env.push({
               name: 'SOCKETCLUSTER_WORKERS',
               value: String(baasilConfig.socketCluster.workers || defaultWorkerCount)
             });
-            containers[index].env.push({
+            containersSocketCluster[index].env.push({
               name: 'SOCKETCLUSTER_BROKERS',
               value: String(baasilConfig.socketCluster.brokers || defaultBrokerCount)
             });
@@ -461,8 +465,39 @@ if (command == 'create') {
         }
       });
 
-      var formattedYAMLString = sanitizeYAML(YAML.stringify(deploymentConf, Infinity, 2));
-      fs.writeFileSync(kubeConfSocketCluster, formattedYAMLString);
+      var formattedYAMLStringSocketCluster = sanitizeYAML(YAML.stringify(deploymentConfSocketCluster, Infinity, 2));
+      fs.writeFileSync(kubeConfSocketCluster, formattedYAMLStringSocketCluster);
+
+      var kubeConfSCCBroker = getSCCBrokerDeploymentDefPath(kubernetesDirPath);
+      var kubeConfContentSCCBroker = fs.readFileSync(kubeConfSCCBroker, {encoding: 'utf8'});
+
+      var deploymentConfSCCBroker = YAML.parse(kubeConfContentSCCBroker);
+
+      var containersSCCBroker = deploymentConfSCCBroker.spec.template.spec.containers;
+
+      containersSCCBroker.forEach((value, index) => {
+        if (value) {
+          if (value.name == 'scc-broker') {
+            if (!containersSCCBroker[index].env) {
+              containersSCCBroker[index].env = [];
+            }
+            containersSCCBroker[index].env = containersSCCBroker[index].env.filter((envObject) => {
+              return envObject.name != 'SOCKETCLUSTER_WORKERS' && envObject.name != 'SOCKETCLUSTER_BROKERS';
+            });
+            containersSCCBroker[index].env.push({
+              name: 'SOCKETCLUSTER_WORKERS',
+              value: String(baasilConfig.sccBroker.workers || defaultWorkerCount)
+            });
+            containersSCCBroker[index].env.push({
+              name: 'SOCKETCLUSTER_BROKERS',
+              value: String(baasilConfig.sccBroker.brokers || defaultBrokerCount)
+            });
+          }
+        }
+      });
+
+      var formattedYAMLStringSCCBroker = sanitizeYAML(YAML.stringify(deploymentConfSCCBroker, Infinity, 2));
+      fs.writeFileSync(kubeConfSocketCluster, formattedYAMLStringSCCBroker);
 
       var ingressKubeFileName = 'scc-ingress.yaml';
       var socketClusterDeploymentFileName = 'socketcluster-deployment.yaml';
@@ -607,6 +642,7 @@ if (command == 'create') {
     var handleBrokerCount = function (brokerCount) {
       if (brokerCount) {
         baasilConfig.socketCluster.brokers = brokerCount;
+        baasilConfig.sccBroker.brokers = brokerCount;
       }
       // TODO: Uncomment once autoscale has been fixed in Rancher/Kubernetes
       // promptAutoScale();
@@ -616,9 +652,13 @@ if (command == 'create') {
     var handleWorkerCount = function (workerCount) {
       if (workerCount) {
         baasilConfig.socketCluster.workers = workerCount;
+        baasilConfig.sccBroker.workers = workerCount;
       }
       if (!baasilConfig.socketCluster.brokers) {
         baasilConfig.socketCluster.brokers = defaultBrokerCount;
+      }
+      if (!baasilConfig.sccBroker.brokers) {
+        baasilConfig.sccBroker.brokers = defaultBrokerCount;
       }
       var currentBrokerCount = baasilConfig.socketCluster.brokers;
       promptInput(`Enter the number of brokers for each SocketCluster instance (Default: ${currentBrokerCount}):`, handleBrokerCount);
@@ -628,8 +668,14 @@ if (command == 'create') {
       if (!baasilConfig.socketCluster) {
         baasilConfig.socketCluster = {};
       }
+      if (!baasilConfig.sccBroker) {
+        baasilConfig.sccBroker = {};
+      }
       if (!baasilConfig.socketCluster.workers) {
         baasilConfig.socketCluster.workers = defaultWorkerCount;
+      }
+      if (!baasilConfig.sccBroker.workers) {
+        baasilConfig.sccBroker.workers = defaultWorkerCount;
       }
       var currentWorkerCount = baasilConfig.socketCluster.workers;
       promptInput(`Enter the number of workers for each SocketCluster instance (Default: ${currentWorkerCount}):`, handleWorkerCount);
