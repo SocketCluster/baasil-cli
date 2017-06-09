@@ -442,15 +442,12 @@ if (command == 'create') {
         if (value) {
           if (value.name == 'app-src-container') {
             containers[index].image = dockerConfig.imageName;
-          } else if (value.name == 'socketcluster') {
+          } else if (value.name == 'socketcluster' || value.name == 'scc-broker') {
             if (!containers[index].env) {
               containers[index].env = [];
             }
             containers[index].env = containers[index].env.filter((envObject) => {
-              if (envObject.name == 'SOCKETCLUSTER_WORKERS' || envObject.name == 'SOCKETCLUSTER_BROKERS') {
-                return false;
-              }
-              return true;
+              return envObject.name != 'SOCKETCLUSTER_WORKERS' && envObject.name != 'SOCKETCLUSTER_BROKERS';
             });
             containers[index].env.push({
               name: 'SOCKETCLUSTER_WORKERS',
