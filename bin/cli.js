@@ -440,6 +440,7 @@ if (command == 'create') {
       var kubeConfContentSocketCluster = fs.readFileSync(kubeConfSocketCluster, {encoding: 'utf8'});
 
       var deploymentConfSocketCluster = YAML.parse(kubeConfContentSocketCluster);
+      var configSocketCluster = baasilConfig.socketCluster || {};
 
       var containersSocketCluster = deploymentConfSocketCluster.spec.template.spec.containers;
       containersSocketCluster.forEach((value, index) => {
@@ -455,11 +456,11 @@ if (command == 'create') {
             });
             containersSocketCluster[index].env.push({
               name: 'SOCKETCLUSTER_WORKERS',
-              value: String(baasilConfig.socketCluster.workers || defaultWorkerCount)
+              value: String(configSocketCluster.workers || defaultWorkerCount)
             });
             containersSocketCluster[index].env.push({
               name: 'SOCKETCLUSTER_BROKERS',
-              value: String(baasilConfig.socketCluster.brokers || defaultBrokerCount)
+              value: String(configSocketCluster.brokers || defaultBrokerCount)
             });
           }
         }
@@ -472,6 +473,7 @@ if (command == 'create') {
       var kubeConfContentSCCBroker = fs.readFileSync(kubeConfSCCBroker, {encoding: 'utf8'});
 
       var deploymentConfSCCBroker = YAML.parse(kubeConfContentSCCBroker);
+      var configSCCBroker = baasilConfig.sccBroker || {};
 
       var containersSCCBroker = deploymentConfSCCBroker.spec.template.spec.containers;
 
@@ -486,11 +488,11 @@ if (command == 'create') {
             });
             containersSCCBroker[index].env.push({
               name: 'SOCKETCLUSTER_WORKERS',
-              value: String(baasilConfig.sccBroker.workers || defaultWorkerCount)
+              value: String(configSCCBroker.workers || defaultWorkerCount)
             });
             containersSCCBroker[index].env.push({
               name: 'SOCKETCLUSTER_BROKERS',
-              value: String(baasilConfig.sccBroker.brokers || defaultBrokerCount)
+              value: String(configSCCBroker.brokers || defaultBrokerCount)
             });
           }
         }
