@@ -497,7 +497,7 @@ if (command == 'create') {
       });
 
       var formattedYAMLStringSCCBroker = sanitizeYAML(YAML.stringify(deploymentConfSCCBroker, Infinity, 2));
-      fs.writeFileSync(kubeConfSocketCluster, formattedYAMLStringSCCBroker);
+      fs.writeFileSync(kubeConfSCCBroker, formattedYAMLStringSCCBroker);
 
       var ingressKubeFileName = 'scc-ingress.yaml';
       var socketClusterDeploymentFileName = 'socketcluster-deployment.yaml';
