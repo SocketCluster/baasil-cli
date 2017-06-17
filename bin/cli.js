@@ -15,6 +15,10 @@ var fork = childProcess.fork;
 
 var command = argv._[0];
 var commandRawArgs = process.argv.slice(3);
+var commandRawArgsString = commandRawArgs.join(' ');
+if (commandRawArgsString.length) {
+  commandRawArgsString = ' ' + commandRawArgsString;
+}
 var arg1 = argv._[1];
 var arg2 = argv._[2];
 
@@ -355,13 +359,14 @@ if (command == 'create') {
   }
   process.exit();
 } else if (command == 'list') {
-  try {
-    var containerLog = execSync(`docker ps`).toString();
-    process.stdout.write(containerLog);
-  } catch (e) {
-    errorMessage(`Failed to list active containers.`);
-  }
-  process.exit();
+  var command = exec(`docker ps${commandRawArgsString}`, function (err) {
+    if (err) {
+      errorMessage(`Failed to list active containers. ` + err);
+    }
+    process.exit();
+  });
+  command.stdout.pipe(process.stdout);
+  command.stderr.pipe(process.stderr);
 } else if (command == 'logs') {
   var appName = arg1;
   if (!appName) {
@@ -370,13 +375,14 @@ if (command == 'create') {
     var pkg = parsePackageFile(appPath);
     appName = pkg.name;
   }
-  try {
-    var outputLog = execSync(`docker logs ${appName}`).toString();
-    process.stdout.write(outputLog);
-  } catch (e) {
-    errorMessage(`Failed to get logs for '${appName}' app.`);
-  }
-  process.exit();
+  var command = exec(`docker logs ${appName}${commandRawArgsString}`, function (err) {
+    if (err) {
+      errorMessage(`Failed to get logs for '${appName}' app. ` + err);
+    }
+    process.exit();
+  });
+  command.stdout.pipe(process.stdout);
+  command.stderr.pipe(process.stderr);
 } else if (command == 'deploy' || command == 'deploy-update') {
   var appPath = arg1 || '.';
   var absoluteAppPath = path.resolve(appPath);
