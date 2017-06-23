@@ -1,4 +1,4 @@
-FROM node:6.3.0-slim
+FROM node:8.1.2-slim
 
 LABEL description="Volume container which holds source code for an SCC app or service."
 
