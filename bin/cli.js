@@ -232,6 +232,10 @@ if (command == 'create') {
           name: 'SOCKETCLUSTER_WORKER_CONTROLLER',
           value: '/usr/src/app/worker.js'
         });
+        containers[appSrcContainerIndex].env.push({
+          name: 'SOCKETCLUSTER_MASTER_CONTROLLER',
+          value: '/usr/src/app/master.js'
+        });
         containers.push({
           name: 'app-src-container',
           image: '', // image name will be generated during deployment
@@ -314,7 +318,7 @@ if (command == 'create') {
   } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js"` +
-    `${envFlagString} --name ${appName} socketcluster/socketcluster:v6.3.1`;
+    `${envFlagString} --name ${appName} socketcluster/socketcluster:v6.4.0`;
 
   try {
     execSync(dockerCommand, {stdio: 'inherit'});
