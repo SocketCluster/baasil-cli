@@ -317,8 +317,8 @@ if (command == 'create') {
     execSync(`docker rm ${appName}`, {stdio: 'ignore'});
   } catch (e) {}
 
-  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js"` +
-    `${envFlagString} --name ${appName} socketcluster/socketcluster:v6.4.0`;
+  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
+    `-e "SOCKETCLUSTER_MASTER_CONTROLLER=/usr/src/app/master.js"${envFlagString} --name ${appName} socketcluster/socketcluster:v6.4.0`;
 
   try {
     execSync(dockerCommand, {stdio: 'inherit'});
