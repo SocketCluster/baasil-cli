@@ -84,7 +84,6 @@ var showCorrectUsage = function () {
   var extraMessage = 'Note that the app-name/app-path in the commands above is optional - If not provided ' +
     'then baasil will use the current working directory as the app path.';
   console.log(extraMessage);
-  console.log('');
 };
 
 var failedToRemoveDirMessage = function (dirPath) {
