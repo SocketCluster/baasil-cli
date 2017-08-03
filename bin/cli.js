@@ -69,6 +69,7 @@ var showCorrectUsage = function () {
   console.log('  stop <app-path-or-name>       Stop an app with the specified name');
   console.log('  list                          List all running Docker containers on your local machine');
   console.log('  logs <app-path-or-name>       Get logs for the app with the specified name');
+  console.log('    -f                          Follow the logs');
   console.log('  deploy <app-path>             Deploy app at path to your Baasil.io cluster');
   // TODO
   // console.log('    --key-path <key-path>       >> Path to your TLS private key');
@@ -79,6 +80,11 @@ var showCorrectUsage = function () {
   // console.log('                                   for you using Letsencrypt');
   console.log('  deploy-update <app-path>      Deploy update to app which was previously deployed');
   console.log('  undeploy <app-path>           Shutdown all core app services running on your cluster');
+  console.log('');
+  var extraMessage = 'Note that the app-name/app-path in the commands above is optional - If not provided ' +
+    'then baasil will use the current working directory as the app path.';
+  console.log(extraMessage);
+  console.log('');
 };
 
 var failedToRemoveDirMessage = function (dirPath) {
