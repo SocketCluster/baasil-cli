@@ -1,6 +1,6 @@
 {
   "name": "baasil",
-  "version": "2.5.2",
+  "version": "3.0.0",
   "description": "Command line interface for deploying apps to Kubernetes running on Rancher",
   "main": "index.js",
   "scripts": {
