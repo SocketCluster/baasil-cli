@@ -14,7 +14,7 @@
     "fs-extra": "0.30.0",
     "inquirer": "1.1.3",
     "minimist": "1.1.0",
-    "socketcluster": "~8.0.2",
+    "socketcluster": "~9.0.0",
     "yamljs": "0.2.8"
   },
   "bin": {
