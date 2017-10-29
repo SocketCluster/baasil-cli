@@ -30,8 +30,8 @@ var options = {
   // If your system doesn't support 'uws', you can switch to 'ws' (which is slower but works on older systems).
   wsEngine: process.env.SOCKETCLUSTER_WS_ENGINE || 'uws',
   appName: argv.n || process.env.SOCKETCLUSTER_APP_NAME || null,
-  workerController: workerControllerPath || __dirname + '/worker.js',
-  brokerController: brokerControllerPath || __dirname + '/broker.js',
+  workerController: workerControllerPath || './worker.js',
+  brokerController: brokerControllerPath || './broker.js',
   workerClusterController: workerClusterControllerPath || null,
   socketChannelLimit: Number(process.env.SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT) || 1000,
   clusterStateServerHost: argv.cssh || process.env.SCC_STATE_SERVER_HOST || null,
