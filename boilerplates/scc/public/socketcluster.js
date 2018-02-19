@@ -1,7 +1,416 @@
 /**
- * SocketCluster JavaScript client v9.0.4
+ * SocketCluster JavaScript client v10.1.1
  */
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.socketCluster = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(_dereq_,module,exports){
+// Based on https://github.com/dscape/cycle/blob/master/cycle.js
+
+module.exports = function decycle(object) {
+// Make a deep copy of an object or array, assuring that there is at most
+// one instance of each object or array in the resulting structure. The
+// duplicate references (which might be forming cycles) are replaced with
+// an object of the form
+//      {$ref: PATH}
+// where the PATH is a JSONPath string that locates the first occurance.
+// So,
+//      var a = [];
+//      a[0] = a;
+//      return JSON.stringify(JSON.decycle(a));
+// produces the string '[{"$ref":"$"}]'.
+
+// JSONPath is used to locate the unique object. $ indicates the top level of
+// the object or array. [NUMBER] or [STRING] indicates a child member or
+// property.
+
+    var objects = [],   // Keep a reference to each unique object or array
+        paths = [];     // Keep the path to each unique object or array
+
+    return (function derez(value, path) {
+
+// The derez recurses through the object, producing the deep copy.
+
+        var i,          // The loop counter
+            name,       // Property name
+            nu;         // The new object or array
+
+// typeof null === 'object', so go on if this value is really an object but not
+// one of the weird builtin objects.
+
+        if (typeof value === 'object' && value !== null &&
+                !(value instanceof Boolean) &&
+                !(value instanceof Date)    &&
+                !(value instanceof Number)  &&
+                !(value instanceof RegExp)  &&
+                !(value instanceof String)) {
+
+// If the value is an object or array, look to see if we have already
+// encountered it. If so, return a $ref/path object. This is a hard way,
+// linear search that will get slower as the number of unique objects grows.
+
+            for (i = 0; i < objects.length; i += 1) {
+                if (objects[i] === value) {
+                    return {$ref: paths[i]};
+                }
+            }
+
+// Otherwise, accumulate the unique value and its path.
+
+            objects.push(value);
+            paths.push(path);
+
+// If it is an array, replicate the array.
+
+            if (Object.prototype.toString.apply(value) === '[object Array]') {
+                nu = [];
+                for (i = 0; i < value.length; i += 1) {
+                    nu[i] = derez(value[i], path + '[' + i + ']');
+                }
+            } else {
+
+// If it is an object, replicate the object.
+
+                nu = {};
+                for (name in value) {
+                    if (Object.prototype.hasOwnProperty.call(value, name)) {
+                        nu[name] = derez(value[name],
+                            path + '[' + JSON.stringify(name) + ']');
+                    }
+                }
+            }
+            return nu;
+        }
+        return value;
+    }(object, '$'));
+};
+
+},{}],2:[function(_dereq_,module,exports){
+var decycle = _dereq_('./decycle');
+
+var isStrict = (function () { return !this; })();
+
+function AuthTokenExpiredError(message, expiry) {
+  this.name = 'AuthTokenExpiredError';
+  this.message = message;
+  this.expiry = expiry;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+AuthTokenExpiredError.prototype = Object.create(Error.prototype);
+
+
+function AuthTokenInvalidError(message) {
+  this.name = 'AuthTokenInvalidError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+AuthTokenInvalidError.prototype = Object.create(Error.prototype);
+
+
+function AuthTokenNotBeforeError(message, date) {
+  this.name = 'AuthTokenNotBeforeError';
+  this.message = message;
+  this.date = date;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+AuthTokenNotBeforeError.prototype = Object.create(Error.prototype);
+
+
+// For any other auth token error.
+function AuthTokenError(message) {
+  this.name = 'AuthTokenError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+AuthTokenError.prototype = Object.create(Error.prototype);
+
+
+function SilentMiddlewareBlockedError(message, type) {
+  this.name = 'SilentMiddlewareBlockedError';
+  this.message = message;
+  this.type = type;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+SilentMiddlewareBlockedError.prototype = Object.create(Error.prototype);
+
+
+function InvalidActionError(message) {
+  this.name = 'InvalidActionError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+InvalidActionError.prototype = Object.create(Error.prototype);
+
+function InvalidArgumentsError(message) {
+  this.name = 'InvalidArgumentsError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+InvalidArgumentsError.prototype = Object.create(Error.prototype);
+
+function InvalidOptionsError(message) {
+  this.name = 'InvalidOptionsError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+InvalidOptionsError.prototype = Object.create(Error.prototype);
+
+
+function InvalidMessageError(message) {
+  this.name = 'InvalidMessageError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+InvalidMessageError.prototype = Object.create(Error.prototype);
+
+
+function SocketProtocolError(message, code) {
+  this.name = 'SocketProtocolError';
+  this.message = message;
+  this.code = code;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+SocketProtocolError.prototype = Object.create(Error.prototype);
+
+
+function ServerProtocolError(message) {
+  this.name = 'ServerProtocolError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+ServerProtocolError.prototype = Object.create(Error.prototype);
+
+function HTTPServerError(message) {
+  this.name = 'HTTPServerError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+HTTPServerError.prototype = Object.create(Error.prototype);
+
+
+function ResourceLimitError(message) {
+  this.name = 'ResourceLimitError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+ResourceLimitError.prototype = Object.create(Error.prototype);
+
+
+function TimeoutError(message) {
+  this.name = 'TimeoutError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+TimeoutError.prototype = Object.create(Error.prototype);
+
+
+function BadConnectionError(message, type) {
+  this.name = 'BadConnectionError';
+  this.message = message;
+  this.type = type;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+BadConnectionError.prototype = Object.create(Error.prototype);
+
+
+function BrokerError(message) {
+  this.name = 'BrokerError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+BrokerError.prototype = Object.create(Error.prototype);
+
+
+function ProcessExitError(message, code) {
+  this.name = 'ProcessExitError';
+  this.message = message;
+  this.code = code;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+ProcessExitError.prototype = Object.create(Error.prototype);
+
+
+function UnknownError(message) {
+  this.name = 'UnknownError';
+  this.message = message;
+  if (Error.captureStackTrace && !isStrict) {
+    Error.captureStackTrace(this, arguments.callee);
+  } else {
+    this.stack = (new Error()).stack;
+  }
+}
+UnknownError.prototype = Object.create(Error.prototype);
+
+
+// Expose all error types.
+
+module.exports = {
+  AuthTokenExpiredError: AuthTokenExpiredError,
+  AuthTokenInvalidError: AuthTokenInvalidError,
+  AuthTokenNotBeforeError: AuthTokenNotBeforeError,
+  AuthTokenError: AuthTokenError,
+  SilentMiddlewareBlockedError: SilentMiddlewareBlockedError,
+  InvalidActionError: InvalidActionError,
+  InvalidArgumentsError: InvalidArgumentsError,
+  InvalidOptionsError: InvalidOptionsError,
+  InvalidMessageError: InvalidMessageError,
+  SocketProtocolError: SocketProtocolError,
+  ServerProtocolError: ServerProtocolError,
+  HTTPServerError: HTTPServerError,
+  ResourceLimitError: ResourceLimitError,
+  TimeoutError: TimeoutError,
+  BadConnectionError: BadConnectionError,
+  BrokerError: BrokerError,
+  ProcessExitError: ProcessExitError,
+  UnknownError: UnknownError
+};
+
+module.exports.socketProtocolErrorStatuses = {
+  1001: 'Socket was disconnected',
+  1002: 'A WebSocket protocol error was encountered',
+  1003: 'Server terminated socket because it received invalid data',
+  1005: 'Socket closed without status code',
+  1006: 'Socket hung up',
+  1007: 'Message format was incorrect',
+  1008: 'Encountered a policy violation',
+  1009: 'Message was too big to process',
+  1010: 'Client ended the connection because the server did not comply with extension requirements',
+  1011: 'Server encountered an unexpected fatal condition',
+  4000: 'Server ping timed out',
+  4001: 'Client pong timed out',
+  4002: 'Server failed to sign auth token',
+  4003: 'Failed to complete handshake',
+  4004: 'Client failed to save auth token',
+  4005: 'Did not receive #handshake from client before timeout',
+  4006: 'Failed to bind socket to message broker',
+  4007: 'Client connection establishment timed out',
+  4008: 'Server rejected handshake from client'
+};
+
+module.exports.socketProtocolIgnoreStatuses = {
+  1000: 'Socket closed normally',
+  1001: 'Socket hung up'
+};
+
+// Properties related to error domains cannot be serialized.
+var unserializableErrorProperties = {
+  domain: 1,
+  domainEmitter: 1,
+  domainThrown: 1
+};
+
+// Convert an error into a JSON-compatible type which can later be hydrated
+// back to its *original* form.
+module.exports.dehydrateError = function dehydrateError(error, includeStackTrace) {
+  var dehydratedError;
+
+  if (error && typeof error == 'object') {
+    dehydratedError = {
+      message: error.message
+    };
+    if (includeStackTrace) {
+      dehydratedError.stack = error.stack;
+    }
+    for (var i in error) {
+      if (!unserializableErrorProperties[i]) {
+        dehydratedError[i] = error[i];
+      }
+    }
+  } else if (typeof error == 'function') {
+    dehydratedError = '[function ' + (error.name || 'anonymous') + ']';
+  } else {
+    dehydratedError = error;
+  }
+
+  return decycle(dehydratedError);
+};
+
+// Convert a dehydrated error back to its *original* form.
+module.exports.hydrateError = function hydrateError(error) {
+  var hydratedError = null;
+  if (error != null) {
+    if (typeof error == 'object') {
+      hydratedError = new Error(error.message);
+      for (var i in error) {
+        if (error.hasOwnProperty(i)) {
+          hydratedError[i] = error[i];
+        }
+      }
+    } else {
+      hydratedError = error;
+    }
+  }
+  return hydratedError;
+};
+
+module.exports.decycle = decycle;
+
+},{"./decycle":1}],3:[function(_dereq_,module,exports){
 var SCSocket = _dereq_('./lib/scsocket');
 var SCSocketCreator = _dereq_('./lib/scsocketcreator');
 
@@ -10,19 +419,21 @@ module.exports.SCSocket = SCSocket;
 
 module.exports.Emitter = _dereq_('component-emitter');
 
-module.exports.connect = function (options) {
-  return SCSocketCreator.connect(options);
+module.exports.create = function (options) {
+  return SCSocketCreator.create(options);
 };
+
+module.exports.connect = module.exports.create;
 
 module.exports.destroy = function (options) {
   return SCSocketCreator.destroy(options);
 };
 
-module.exports.connections = SCSocketCreator.connections;
+module.exports.clients = SCSocketCreator.clients;
 
-module.exports.version = '9.0.4';
+module.exports.version = '10.1.1';
 
-},{"./lib/scsocket":4,"./lib/scsocketcreator":5,"component-emitter":12}],2:[function(_dereq_,module,exports){
+},{"./lib/scsocket":6,"./lib/scsocketcreator":7,"component-emitter":14}],4:[function(_dereq_,module,exports){
 (function (global){
 var AuthEngine = function () {
   this._internalStorage = {};
@@ -84,7 +495,7 @@ AuthEngine.prototype.loadToken = function (name, callback) {
 module.exports.AuthEngine = AuthEngine;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],3:[function(_dereq_,module,exports){
+},{}],5:[function(_dereq_,module,exports){
 var scErrors = _dereq_('sc-errors');
 var InvalidActionError = scErrors.InvalidActionError;
 
@@ -141,7 +552,7 @@ Response.prototype.callback = function (error, data) {
 
 module.exports.Response = Response;
 
-},{"sc-errors":21}],4:[function(_dereq_,module,exports){
+},{"sc-errors":2}],6:[function(_dereq_,module,exports){
 (function (global,Buffer){
 var Emitter = _dereq_('component-emitter');
 var SCChannel = _dereq_('sc-channel').SCChannel;
@@ -177,6 +588,7 @@ var SCSocket = function (opts) {
   this.pendingReconnect = false;
   this.pendingReconnectTimeout = null;
   this.preparingPendingSubscriptions = false;
+  this.clientId = opts.clientId;
 
   this.connectTimeout = opts.connectTimeout;
   this.ackTimeout = opts.ackTimeout;
@@ -187,6 +599,8 @@ var SCSocket = function (opts) {
   // pingTimeout will be ackTimeout at the start, but it will
   // be updated with values provided by the 'connect' event
   this.pingTimeout = this.ackTimeout;
+
+  this._clientMap = opts.clientMap || {};
 
   var maxTimeout = Math.pow(2, 31) - 1;
 
@@ -463,6 +877,7 @@ SCSocket.prototype.destroy = function () {
     global.removeEventListener('beforeunload', this._unloadHandler, false);
   }
   this.disconnect();
+  delete this._clientMap[this.clientId];
 };
 
 SCSocket.prototype._changeToUnauthenticatedStateAndClearTokens = function () {
@@ -747,6 +1162,7 @@ SCSocket.prototype._onSCClose = function (code, data, openAbort) {
   // or on client pong timeout (4001)
   // or on close without status (1005)
   // or on handshake failure (4003)
+  // or on handshake rejection (4008)
   // or on socket hung up (1006)
   if (this.options.autoReconnect) {
     if (code == 4000 || code == 4001 || code == 1005) {
@@ -771,13 +1187,13 @@ SCSocket.prototype._onSCClose = function (code, data, openAbort) {
   Emitter.prototype.emit.call(self, 'close', code, data);
 
   if (!SCSocket.ignoreStatuses[code]) {
-    var failureMessage;
+    var closeMessage;
     if (data) {
-      failureMessage = 'Socket connection failed: ' + data;
+      closeMessage = 'Socket connection closed with status code ' + code + ' and reason: ' + data;
     } else {
-      failureMessage = 'Socket connection failed for unknown reasons';
+      closeMessage = 'Socket connection closed with status code ' + code;
     }
-    var err = new SocketProtocolError(SCSocket.errorStatuses[code] || failureMessage, code);
+    var err = new SocketProtocolError(SCSocket.errorStatuses[code] || closeMessage, code);
     this._onSCError(err);
   }
 };
@@ -1160,13 +1576,14 @@ SCSocket.prototype.watchers = function (channelName) {
 module.exports = SCSocket;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},_dereq_("buffer").Buffer)
-},{"./auth":2,"./response":3,"./sctransport":6,"base-64":8,"buffer":10,"clone":11,"component-emitter":12,"linked-list":15,"querystring":18,"sc-channel":19,"sc-errors":21,"sc-formatter":22}],5:[function(_dereq_,module,exports){
+},{"./auth":4,"./response":5,"./sctransport":8,"base-64":10,"buffer":12,"clone":13,"component-emitter":14,"linked-list":17,"querystring":20,"sc-channel":21,"sc-errors":2,"sc-formatter":22}],7:[function(_dereq_,module,exports){
 (function (global){
 var SCSocket = _dereq_('./scsocket');
 var scErrors = _dereq_('sc-errors');
+var uuid = _dereq_('uuid');
 var InvalidArgumentsError = scErrors.InvalidArgumentsError;
 
-var _connections = {};
+var _clients = {};
 
 function getMultiplexId(options) {
   var protocolPrefix = options.secure ? 'https://' : 'http://';
@@ -1205,7 +1622,7 @@ function getPort(options, isSecureDefault) {
   return options.port || (global.location && location.port ? location.port : isSecure ? 443 : 80);
 }
 
-function connect(options) {
+function create(options) {
   var self = this;
 
   options = options || {};
@@ -1242,51 +1659,36 @@ function connect(options) {
       opts[i] = options[i];
     }
   }
-  var multiplexId = getMultiplexId(opts);
+  opts.clientMap = _clients;
+
   if (opts.multiplex === false) {
-    return new SCSocket(opts);
+    opts.clientId = uuid.v4();
+    var socket = new SCSocket(opts);
+    _clients[opts.clientId] = socket;
+    return socket;
   }
-  if (_connections[multiplexId]) {
-    _connections[multiplexId].connect();
+  opts.clientId = getMultiplexId(opts);
+
+  if (_clients[opts.clientId]) {
+    _clients[opts.clientId].connect();
   } else {
-    _connections[multiplexId] = new SCSocket(opts);
+    _clients[opts.clientId] = new SCSocket(opts);
   }
-  return _connections[multiplexId];
+  return _clients[opts.clientId];
 }
 
-function destroy(options) {
-  var self = this;
-
-  options = options || {};
-  var isSecureDefault = isUrlSecure();
-
-  var opts = {
-    port: getPort(options, isSecureDefault),
-    hostname: global.location && location.hostname,
-    path: '/socketcluster/',
-    secure: isSecureDefault
-  };
-  for (var i in options) {
-    if (options.hasOwnProperty(i)) {
-      opts[i] = options[i];
-    }
-  }
-  var multiplexId = getMultiplexId(opts);
-  var socket = _connections[multiplexId];
-  if (socket) {
-    socket.destroy();
-  }
-  delete _connections[multiplexId];
+function destroy(socket) {
+  socket.destroy();
 }
 
 module.exports = {
-  connect: connect,
+  create: create,
   destroy: destroy,
-  connections: _connections
+  clients: _clients
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./scsocket":4,"sc-errors":21}],6:[function(_dereq_,module,exports){
+},{"./scsocket":6,"sc-errors":2,"uuid":23}],8:[function(_dereq_,module,exports){
 (function (global){
 var Emitter = _dereq_('component-emitter');
 var Response = _dereq_('./response').Response;
@@ -1422,9 +1824,15 @@ SCTransport.prototype._onOpen = function () {
 
   this._handshake(function (err, status) {
     if (err) {
+      var statusCode;
+      if (status && status.code) {
+        statusCode = status.code;
+      } else {
+        statusCode = 4003;
+      }
       self._onError(err);
-      self._onClose(4003);
-      self.socket.close(4003);
+      self._onClose(statusCode, err.toString());
+      self.socket.close(statusCode);
     } else {
       self.state = self.OPEN;
       Emitter.prototype.emit.call(self, 'open', status);
@@ -1723,7 +2131,7 @@ SCTransport.prototype.sendObject = function (object, options) {
 module.exports.SCTransport = SCTransport;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./response":3,"component-emitter":12,"querystring":18,"sc-errors":21,"ws":7}],7:[function(_dereq_,module,exports){
+},{"./response":5,"component-emitter":14,"querystring":20,"sc-errors":2,"ws":9}],9:[function(_dereq_,module,exports){
 var global;
 if (typeof WorkerGlobalScope !== 'undefined') {
   global = self;
@@ -1760,7 +2168,7 @@ if (WebSocket) ws.prototype = WebSocket.prototype;
 
 module.exports = WebSocket ? ws : null;
 
-},{}],8:[function(_dereq_,module,exports){
+},{}],10:[function(_dereq_,module,exports){
 (function (global){
 /*! http://mths.be/base64 v0.1.0 by @mathias | MIT license */
 ;(function(root) {
@@ -1929,7 +2337,7 @@ module.exports = WebSocket ? ws : null;
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],9:[function(_dereq_,module,exports){
+},{}],11:[function(_dereq_,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -2045,7 +2453,7 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],10:[function(_dereq_,module,exports){
+},{}],12:[function(_dereq_,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -3761,7 +4169,7 @@ function numberIsNaN (obj) {
   return obj !== obj // eslint-disable-line no-self-compare
 }
 
-},{"base64-js":9,"ieee754":13}],11:[function(_dereq_,module,exports){
+},{"base64-js":11,"ieee754":15}],13:[function(_dereq_,module,exports){
 (function (Buffer){
 var clone = (function() {
 'use strict';
@@ -4016,7 +4424,7 @@ if (typeof module === 'object' && module.exports) {
 }
 
 }).call(this,_dereq_("buffer").Buffer)
-},{"buffer":10}],12:[function(_dereq_,module,exports){
+},{"buffer":12}],14:[function(_dereq_,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -4181,7 +4589,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],13:[function(_dereq_,module,exports){
+},{}],15:[function(_dereq_,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -4267,7 +4675,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],14:[function(_dereq_,module,exports){
+},{}],16:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -4655,12 +5063,12 @@ ListItemPrototype.append = function (item) {
 
 module.exports = List;
 
-},{}],15:[function(_dereq_,module,exports){
+},{}],17:[function(_dereq_,module,exports){
 'use strict';
 
 module.exports = _dereq_('./_source/linked-list.js');
 
-},{"./_source/linked-list.js":14}],16:[function(_dereq_,module,exports){
+},{"./_source/linked-list.js":16}],18:[function(_dereq_,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4746,7 +5154,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],17:[function(_dereq_,module,exports){
+},{}],19:[function(_dereq_,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4833,13 +5241,13 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],18:[function(_dereq_,module,exports){
+},{}],20:[function(_dereq_,module,exports){
 'use strict';
 
 exports.decode = exports.parse = _dereq_('./decode');
 exports.encode = exports.stringify = _dereq_('./encode');
 
-},{"./decode":16,"./encode":17}],19:[function(_dereq_,module,exports){
+},{"./decode":18,"./encode":19}],21:[function(_dereq_,module,exports){
 var Emitter = _dereq_('component-emitter');
 
 var SCChannel = function (name, client, options) {
@@ -4911,412 +5319,7 @@ SCChannel.prototype.destroy = function () {
 
 module.exports.SCChannel = SCChannel;
 
-},{"component-emitter":12}],20:[function(_dereq_,module,exports){
-// Based on https://github.com/dscape/cycle/blob/master/cycle.js
-
-module.exports = function decycle(object) {
-// Make a deep copy of an object or array, assuring that there is at most
-// one instance of each object or array in the resulting structure. The
-// duplicate references (which might be forming cycles) are replaced with
-// an object of the form
-//      {$ref: PATH}
-// where the PATH is a JSONPath string that locates the first occurance.
-// So,
-//      var a = [];
-//      a[0] = a;
-//      return JSON.stringify(JSON.decycle(a));
-// produces the string '[{"$ref":"$"}]'.
-
-// JSONPath is used to locate the unique object. $ indicates the top level of
-// the object or array. [NUMBER] or [STRING] indicates a child member or
-// property.
-
-    var objects = [],   // Keep a reference to each unique object or array
-        paths = [];     // Keep the path to each unique object or array
-
-    return (function derez(value, path) {
-
-// The derez recurses through the object, producing the deep copy.
-
-        var i,          // The loop counter
-            name,       // Property name
-            nu;         // The new object or array
-
-// typeof null === 'object', so go on if this value is really an object but not
-// one of the weird builtin objects.
-
-        if (typeof value === 'object' && value !== null &&
-                !(value instanceof Boolean) &&
-                !(value instanceof Date)    &&
-                !(value instanceof Number)  &&
-                !(value instanceof RegExp)  &&
-                !(value instanceof String)) {
-
-// If the value is an object or array, look to see if we have already
-// encountered it. If so, return a $ref/path object. This is a hard way,
-// linear search that will get slower as the number of unique objects grows.
-
-            for (i = 0; i < objects.length; i += 1) {
-                if (objects[i] === value) {
-                    return {$ref: paths[i]};
-                }
-            }
-
-// Otherwise, accumulate the unique value and its path.
-
-            objects.push(value);
-            paths.push(path);
-
-// If it is an array, replicate the array.
-
-            if (Object.prototype.toString.apply(value) === '[object Array]') {
-                nu = [];
-                for (i = 0; i < value.length; i += 1) {
-                    nu[i] = derez(value[i], path + '[' + i + ']');
-                }
-            } else {
-
-// If it is an object, replicate the object.
-
-                nu = {};
-                for (name in value) {
-                    if (Object.prototype.hasOwnProperty.call(value, name)) {
-                        nu[name] = derez(value[name],
-                            path + '[' + JSON.stringify(name) + ']');
-                    }
-                }
-            }
-            return nu;
-        }
-        return value;
-    }(object, '$'));
-};
-
-},{}],21:[function(_dereq_,module,exports){
-var decycle = _dereq_('./decycle');
-
-var isStrict = (function () { return !this; })();
-
-function AuthTokenExpiredError(message, expiry) {
-  this.name = 'AuthTokenExpiredError';
-  this.message = message;
-  this.expiry = expiry;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-AuthTokenExpiredError.prototype = Object.create(Error.prototype);
-
-
-function AuthTokenInvalidError(message) {
-  this.name = 'AuthTokenInvalidError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-AuthTokenInvalidError.prototype = Object.create(Error.prototype);
-
-
-function AuthTokenNotBeforeError(message, date) {
-  this.name = 'AuthTokenNotBeforeError';
-  this.message = message;
-  this.date = date;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-AuthTokenNotBeforeError.prototype = Object.create(Error.prototype);
-
-
-// For any other auth token error.
-function AuthTokenError(message) {
-  this.name = 'AuthTokenError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-AuthTokenError.prototype = Object.create(Error.prototype);
-
-
-function SilentMiddlewareBlockedError(message, type) {
-  this.name = 'SilentMiddlewareBlockedError';
-  this.message = message;
-  this.type = type;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-SilentMiddlewareBlockedError.prototype = Object.create(Error.prototype);
-
-
-function InvalidActionError(message) {
-  this.name = 'InvalidActionError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-InvalidActionError.prototype = Object.create(Error.prototype);
-
-function InvalidArgumentsError(message) {
-  this.name = 'InvalidArgumentsError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-InvalidArgumentsError.prototype = Object.create(Error.prototype);
-
-function InvalidOptionsError(message) {
-  this.name = 'InvalidOptionsError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-InvalidOptionsError.prototype = Object.create(Error.prototype);
-
-
-function InvalidMessageError(message) {
-  this.name = 'InvalidMessageError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-InvalidMessageError.prototype = Object.create(Error.prototype);
-
-
-function SocketProtocolError(message, code) {
-  this.name = 'SocketProtocolError';
-  this.message = message;
-  this.code = code;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-SocketProtocolError.prototype = Object.create(Error.prototype);
-
-
-function ServerProtocolError(message) {
-  this.name = 'ServerProtocolError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-ServerProtocolError.prototype = Object.create(Error.prototype);
-
-function HTTPServerError(message) {
-  this.name = 'HTTPServerError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-HTTPServerError.prototype = Object.create(Error.prototype);
-
-
-function ResourceLimitError(message) {
-  this.name = 'ResourceLimitError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-ResourceLimitError.prototype = Object.create(Error.prototype);
-
-
-function TimeoutError(message) {
-  this.name = 'TimeoutError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-TimeoutError.prototype = Object.create(Error.prototype);
-
-
-function BadConnectionError(message, type) {
-  this.name = 'BadConnectionError';
-  this.message = message;
-  this.type = type;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-BadConnectionError.prototype = Object.create(Error.prototype);
-
-
-function BrokerError(message) {
-  this.name = 'BrokerError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-BrokerError.prototype = Object.create(Error.prototype);
-
-
-function ProcessExitError(message, code) {
-  this.name = 'ProcessExitError';
-  this.message = message;
-  this.code = code;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-ProcessExitError.prototype = Object.create(Error.prototype);
-
-
-function UnknownError(message) {
-  this.name = 'UnknownError';
-  this.message = message;
-  if (Error.captureStackTrace && !isStrict) {
-    Error.captureStackTrace(this, arguments.callee);
-  } else {
-    this.stack = (new Error()).stack;
-  }
-}
-UnknownError.prototype = Object.create(Error.prototype);
-
-
-// Expose all error types
-
-module.exports = {
-  AuthTokenExpiredError: AuthTokenExpiredError,
-  AuthTokenInvalidError: AuthTokenInvalidError,
-  AuthTokenNotBeforeError: AuthTokenNotBeforeError,
-  AuthTokenError: AuthTokenError,
-  SilentMiddlewareBlockedError: SilentMiddlewareBlockedError,
-  InvalidActionError: InvalidActionError,
-  InvalidArgumentsError: InvalidArgumentsError,
-  InvalidOptionsError: InvalidOptionsError,
-  InvalidMessageError: InvalidMessageError,
-  SocketProtocolError: SocketProtocolError,
-  ServerProtocolError: ServerProtocolError,
-  HTTPServerError: HTTPServerError,
-  ResourceLimitError: ResourceLimitError,
-  TimeoutError: TimeoutError,
-  BadConnectionError: BadConnectionError,
-  BrokerError: BrokerError,
-  ProcessExitError: ProcessExitError,
-  UnknownError: UnknownError
-};
-
-module.exports.socketProtocolErrorStatuses = {
-  1001: 'Socket was disconnected',
-  1002: 'A WebSocket protocol error was encountered',
-  1003: 'Server terminated socket because it received invalid data',
-  1005: 'Socket closed without status code',
-  1006: 'Socket hung up',
-  1007: 'Message format was incorrect',
-  1008: 'Encountered a policy violation',
-  1009: 'Message was too big to process',
-  1010: 'Client ended the connection because the server did not comply with extension requirements',
-  1011: 'Server encountered an unexpected fatal condition',
-  4000: 'Server ping timed out',
-  4001: 'Client pong timed out',
-  4002: 'Server failed to sign auth token',
-  4003: 'Failed to complete handshake',
-  4004: 'Client failed to save auth token',
-  4005: 'Did not receive #handshake from client before timeout',
-  4006: 'Failed to bind socket to message broker',
-  4007: 'Client connection establishment timed out'
-};
-
-module.exports.socketProtocolIgnoreStatuses = {
-  1000: 'Socket closed normally',
-  1001: 'Socket hung up'
-};
-
-// Properties related to error domains cannot be serialized.
-var unserializableErrorProperties = {
-  domain: 1,
-  domainEmitter: 1,
-  domainThrown: 1
-};
-
-module.exports.dehydrateError = function (error, includeStackTrace) {
-  var dehydratedError;
-
-  if (error && typeof error == 'object') {
-    dehydratedError = {
-      message: error.message
-    };
-    if (includeStackTrace) {
-      dehydratedError.stack = error.stack;
-    }
-    for (var i in error) {
-      if (!unserializableErrorProperties[i]) {
-        dehydratedError[i] = error[i];
-      }
-    }
-  } else if (typeof error == 'function') {
-    dehydratedError = '[function ' + (error.name || 'anonymous') + ']';
-  } else {
-    dehydratedError = error;
-  }
-
-  return decycle(dehydratedError);
-};
-
-module.exports.hydrateError = function (error) {
-  var hydratedError = null;
-  if (error != null) {
-    if (typeof error == 'object') {
-      hydratedError = new Error(error.message);
-      for (var i in error) {
-        if (error.hasOwnProperty(i)) {
-          hydratedError[i] = error[i];
-        }
-      }
-    } else {
-      hydratedError = error;
-    }
-  }
-  return hydratedError;
-};
-
-module.exports.decycle = decycle;
-
-},{"./decycle":20}],22:[function(_dereq_,module,exports){
+},{"component-emitter":14}],22:[function(_dereq_,module,exports){
 (function (global){
 var base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 var validJSONStartRegex = /^[ \n\r\t]*[{\[]/;
@@ -5414,5 +5417,210 @@ module.exports.encode = function (object) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}]},{},[1])(1)
+},{}],23:[function(_dereq_,module,exports){
+var v1 = _dereq_('./v1');
+var v4 = _dereq_('./v4');
+
+var uuid = v4;
+uuid.v1 = v1;
+uuid.v4 = v4;
+
+module.exports = uuid;
+
+},{"./v1":26,"./v4":27}],24:[function(_dereq_,module,exports){
+/**
+ * Convert array of 16 byte values to UUID string format of the form:
+ * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ */
+var byteToHex = [];
+for (var i = 0; i < 256; ++i) {
+  byteToHex[i] = (i + 0x100).toString(16).substr(1);
+}
+
+function bytesToUuid(buf, offset) {
+  var i = offset || 0;
+  var bth = byteToHex;
+  return bth[buf[i++]] + bth[buf[i++]] +
+          bth[buf[i++]] + bth[buf[i++]] + '-' +
+          bth[buf[i++]] + bth[buf[i++]] + '-' +
+          bth[buf[i++]] + bth[buf[i++]] + '-' +
+          bth[buf[i++]] + bth[buf[i++]] + '-' +
+          bth[buf[i++]] + bth[buf[i++]] +
+          bth[buf[i++]] + bth[buf[i++]] +
+          bth[buf[i++]] + bth[buf[i++]];
+}
+
+module.exports = bytesToUuid;
+
+},{}],25:[function(_dereq_,module,exports){
+(function (global){
+// Unique ID creation requires a high quality random # generator.  In the
+// browser this is a little complicated due to unknown quality of Math.random()
+// and inconsistent support for the `crypto` API.  We do the best we can via
+// feature-detection
+var rng;
+
+var crypto = global.crypto || global.msCrypto; // for IE 11
+if (crypto && crypto.getRandomValues) {
+  // WHATWG crypto RNG - http://wiki.whatwg.org/wiki/Crypto
+  var rnds8 = new Uint8Array(16); // eslint-disable-line no-undef
+  rng = function whatwgRNG() {
+    crypto.getRandomValues(rnds8);
+    return rnds8;
+  };
+}
+
+if (!rng) {
+  // Math.random()-based (RNG)
+  //
+  // If all else fails, use Math.random().  It's fast, but is of unspecified
+  // quality.
+  var rnds = new Array(16);
+  rng = function() {
+    for (var i = 0, r; i < 16; i++) {
+      if ((i & 0x03) === 0) r = Math.random() * 0x100000000;
+      rnds[i] = r >>> ((i & 0x03) << 3) & 0xff;
+    }
+
+    return rnds;
+  };
+}
+
+module.exports = rng;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],26:[function(_dereq_,module,exports){
+var rng = _dereq_('./lib/rng');
+var bytesToUuid = _dereq_('./lib/bytesToUuid');
+
+// **`v1()` - Generate time-based UUID**
+//
+// Inspired by https://github.com/LiosK/UUID.js
+// and http://docs.python.org/library/uuid.html
+
+// random #'s we need to init node and clockseq
+var _seedBytes = rng();
+
+// Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
+var _nodeId = [
+  _seedBytes[0] | 0x01,
+  _seedBytes[1], _seedBytes[2], _seedBytes[3], _seedBytes[4], _seedBytes[5]
+];
+
+// Per 4.2.2, randomize (14 bit) clockseq
+var _clockseq = (_seedBytes[6] << 8 | _seedBytes[7]) & 0x3fff;
+
+// Previous uuid creation time
+var _lastMSecs = 0, _lastNSecs = 0;
+
+// See https://github.com/broofa/node-uuid for API details
+function v1(options, buf, offset) {
+  var i = buf && offset || 0;
+  var b = buf || [];
+
+  options = options || {};
+
+  var clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq;
+
+  // UUID timestamps are 100 nano-second units since the Gregorian epoch,
+  // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
+  // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
+  // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
+  var msecs = options.msecs !== undefined ? options.msecs : new Date().getTime();
+
+  // Per 4.2.1.2, use count of uuid's generated during the current clock
+  // cycle to simulate higher resolution clock
+  var nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1;
+
+  // Time since last uuid creation (in msecs)
+  var dt = (msecs - _lastMSecs) + (nsecs - _lastNSecs)/10000;
+
+  // Per 4.2.1.2, Bump clockseq on clock regression
+  if (dt < 0 && options.clockseq === undefined) {
+    clockseq = clockseq + 1 & 0x3fff;
+  }
+
+  // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
+  // time interval
+  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
+    nsecs = 0;
+  }
+
+  // Per 4.2.1.2 Throw error if too many uuids are requested
+  if (nsecs >= 10000) {
+    throw new Error('uuid.v1(): Can\'t create more than 10M uuids/sec');
+  }
+
+  _lastMSecs = msecs;
+  _lastNSecs = nsecs;
+  _clockseq = clockseq;
+
+  // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+  msecs += 12219292800000;
+
+  // `time_low`
+  var tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
+  b[i++] = tl >>> 24 & 0xff;
+  b[i++] = tl >>> 16 & 0xff;
+  b[i++] = tl >>> 8 & 0xff;
+  b[i++] = tl & 0xff;
+
+  // `time_mid`
+  var tmh = (msecs / 0x100000000 * 10000) & 0xfffffff;
+  b[i++] = tmh >>> 8 & 0xff;
+  b[i++] = tmh & 0xff;
+
+  // `time_high_and_version`
+  b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
+  b[i++] = tmh >>> 16 & 0xff;
+
+  // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+  b[i++] = clockseq >>> 8 | 0x80;
+
+  // `clock_seq_low`
+  b[i++] = clockseq & 0xff;
+
+  // `node`
+  var node = options.node || _nodeId;
+  for (var n = 0; n < 6; ++n) {
+    b[i + n] = node[n];
+  }
+
+  return buf ? buf : bytesToUuid(b);
+}
+
+module.exports = v1;
+
+},{"./lib/bytesToUuid":24,"./lib/rng":25}],27:[function(_dereq_,module,exports){
+var rng = _dereq_('./lib/rng');
+var bytesToUuid = _dereq_('./lib/bytesToUuid');
+
+function v4(options, buf, offset) {
+  var i = buf && offset || 0;
+
+  if (typeof(options) == 'string') {
+    buf = options == 'binary' ? new Array(16) : null;
+    options = null;
+  }
+  options = options || {};
+
+  var rnds = options.random || (options.rng || rng)();
+
+  // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+  rnds[6] = (rnds[6] & 0x0f) | 0x40;
+  rnds[8] = (rnds[8] & 0x3f) | 0x80;
+
+  // Copy bytes to buffer, if provided
+  if (buf) {
+    for (var ii = 0; ii < 16; ++ii) {
+      buf[i + ii] = rnds[ii];
+    }
+  }
+
+  return buf || bytesToUuid(rnds);
+}
+
+module.exports = v4;
+
+},{"./lib/bytesToUuid":24,"./lib/rng":25}]},{},[3])(3)
 });
