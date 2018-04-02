@@ -447,7 +447,8 @@ if (command == 'create') {
       fs.writeFileSync(baasilConfigFilePath, JSON.stringify(baasilConfig, null, 2));
 
       execSync(`docker build -t ${dockerConfig.imageName} .`, {stdio: 'inherit'});
-      execSync(`${dockerLoginCommand}; docker push ${dockerConfig.imageName}`, {stdio: 'inherit'});
+      execSync(`${dockerLoginCommand}`, {stdio: 'inherit'});
+      execSync(`docker push ${dockerConfig.imageName}`, {stdio: 'inherit'});
 
       var kubernetesDirPath = appPath + '/kubernetes';
 
