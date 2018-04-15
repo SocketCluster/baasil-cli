@@ -26,10 +26,10 @@ var options = {
   brokers: Number(argv.b) || Number(process.env.SOCKETCLUSTER_BROKERS) || 1,
   port: Number(argv.p) || Number(process.env.SOCKETCLUSTER_PORT) || 8000,
   // You can switch to 'sc-uws' for improved performance.
-  wsEngine: process.env.SOCKETCLUSTER_WS_ENGINE || 'ws',
+  wsEngine: process.env.SOCKETCLUSTER_WS_ENGINE || 'sc-uws',
   appName: argv.n || process.env.SOCKETCLUSTER_APP_NAME || null,
-  workerController: workerControllerPath || path.join(__dirname, 'worker.js'),
-  brokerController: brokerControllerPath || path.join(__dirname, 'broker.js'),
+  workerController: workerControllerPath || './worker.js',
+  brokerController: brokerControllerPath || './broker.js',
   workerClusterController: workerClusterControllerPath || null,
   socketChannelLimit: Number(process.env.SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT) || 1000,
   clusterStateServerHost: argv.cssh || process.env.SCC_STATE_SERVER_HOST || null,
