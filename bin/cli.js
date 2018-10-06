@@ -305,6 +305,8 @@ if (command == 'create') {
   var appName = pkg.name;
 
   var portNumber = Number(argv.p) || 8000;
+  var debugPortNumber = Number(argv.debugPort) || 5859;
+  
   var envVarList;
   if (!(argv.e instanceof Array)) {
     envVarList = [argv.e];
@@ -321,9 +323,14 @@ if (command == 'create') {
     execSync(`docker stop ${appName}`, {stdio: 'ignore'});
     execSync(`docker rm ${appName}`, {stdio: 'ignore'});
   } catch (e) {}
+  
+    // See
+  // https://github.com/SocketCluster/socketcluster/blob/28afa76/sample/Dockerfile#L15
+  var extraArguments = argv.socketClusterArgs || "";
+  var command = `npm run start:docker -- ${extraArguments}`;
 
-  var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
-    `-e "SOCKETCLUSTER_MASTER_CONTROLLER=/usr/src/app/server.js"${envFlagString} --name ${appName} socketcluster/socketcluster:v14.3.0`;
+  var dockerCommand = `docker run -d -p ${debugPortNumber}:5859 -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
+    `-e "SOCKETCLUSTER_MASTER_CONTROLLER=/usr/src/app/server.js"${envFlagString} --name ${appName} socketcluster/socketcluster:v14.3.0 ${command}`;
 
   try {
     execSync(dockerCommand, {stdio: 'inherit'});
