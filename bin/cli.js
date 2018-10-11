@@ -40,15 +40,15 @@ var parsePackageFile = function (moduleDir) {
 };
 
 var errorMessage = function (message) {
-  console.log('\033[0;31m[Error]\033[0m ' + message);
+  console.log('\x1b[31m[Error]\x1b[0m ' + message);
 };
 
 var successMessage = function (message) {
-  console.log('\033[0;32m[Success]\033[0m ' + message);
+  console.log('\x1b[32m[Success]\x1b[0m ' + message);
 };
 
 var warningMessage = function (message) {
-  console.log('\033[0;33m[Warning]\033[0m ' + message);
+  console.log('\x1b[33m[Warning]\x1b[0m ' + message);
 };
 
 var showCorrectUsage = function () {
@@ -323,7 +323,7 @@ if (command == 'create') {
   } catch (e) {}
 
   var dockerCommand = `docker run -d -p ${portNumber}:8000 -v ${absoluteAppPath}:/usr/src/app/ -e "SOCKETCLUSTER_WORKER_CONTROLLER=/usr/src/app/worker.js" ` +
-    `-e "SOCKETCLUSTER_MASTER_CONTROLLER=/usr/src/app/server.js"${envFlagString} --name ${appName} socketcluster/socketcluster:v14.3.1`;
+    `-e "SOCKETCLUSTER_MASTER_CONTROLLER=/usr/src/app/server.js"${envFlagString} --name ${appName} socketcluster/socketcluster:v14.3.2`;
 
   try {
     execSync(dockerCommand, {stdio: 'inherit'});
